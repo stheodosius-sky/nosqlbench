@@ -1,0 +1,42 @@
+# nb -v run driver=couchbase yaml=couchbase-basic connection=couchbase://127.0.0.1 bucket=testdb tags=phase:rampup cycles=1M
+description: An example of a basic couchbase insert and find.
+
+scenarios:
+  default:
+    - run driver=couchbase tags==phase:rampup cycles===1000 threads=auto
+    - run driver=couchbase tags==phase:main cycles===1000 threads=auto
+bindings:
+  seq_key: Mod(<<keyCount:1000000>>L); ToInt()
+  seq_value: Mod(<<valueCount:1000000000>>L); <<valueSizeDist:Hash()>>; ToString() -> String
+  rw_key: <<keyDist:Uniform(0,1000000)->long>>; ToInt()
+  rw_value: <<valDist:Uniform(0,1000000000)->int>>; <<valueSizeDist:Hash()>>; ToString() -> String
+
+blocks:
+  - name: rampup
+    tags:
+      phase: rampup
+    ops:
+      - rampup-insert: |
+          UPSERT INTO `<<bucket:testbucket>>`.<<scope:_default>>.<<collection:_default>> (KEY, VALUE)
+          VALUES ("{seq_key}", {seq_value});
+        tags:
+          name: rampup-insert
+  - name: main-read
+    tags:
+      phase: main
+      type: read
+    params:
+      ratio: <<read_ratio:1>>
+    ops:
+      - main-find: |
+          SELECT * FROM `<<bucket:testbucket>>`.<<scope:_default>>.<<collection:_default>> USE KEYS "{rw_key}";
+  - name: main-write
+    tags:
+      phase: main
+      type: write
+    params:
+      ratio: <<write_ratio:1>>
+    ops:
+      - main-insert: |
+          UPSERT INTO `<<bucket:testbucket>>`.<<scope:_default>>.<<collection:_default>> (KEY, VALUE)
+          VALUES ("{seq_key}", {seq_value});

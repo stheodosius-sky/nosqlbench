@@ -62,6 +62,7 @@
         <module>adapter-dynamodb</module>
         <module>adapter-mongodb</module>
         <module>adapter-pulsar</module>
+        <module>adapter-couchbase</module>
 
         <!-- VIRTDATA MODULES -->
 
