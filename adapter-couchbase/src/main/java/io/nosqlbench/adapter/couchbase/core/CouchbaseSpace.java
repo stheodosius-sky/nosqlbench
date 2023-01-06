@@ -72,6 +72,7 @@ public class CouchbaseSpace implements NBNamedElement, AutoCloseable {
                 // Sets a pre-configured profile called "wan-development" to help avoid latency issues
                 // when accessing Capella from a different Wide Area Network
                 // or Availability Zone (e.g. your laptop).
+                // todo(simon): Implement solution to allow connection to clusters with TLS enabled
                 // todo(simon): allow end users to choose their own profile
                 env.applyProfile("wan-development");
             }));

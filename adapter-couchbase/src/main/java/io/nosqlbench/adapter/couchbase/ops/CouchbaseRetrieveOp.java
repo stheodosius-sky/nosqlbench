@@ -35,7 +35,7 @@ public class CouchbaseRetrieveOp implements CycleOp<GetResult> {
     private String scope;
     private String collection;
     private String id;
-    private int resultSize;
+    private int resultSize = -1;
 
     public CouchbaseRetrieveOp(Bucket bucket, String scope, String collection, String id) {
         this.bucket = bucket;
@@ -55,6 +55,7 @@ public class CouchbaseRetrieveOp implements CycleOp<GetResult> {
             this.resultSize = 1;
             return result;
         } catch (DocumentNotFoundException ex) {
+            this.resultSize = 0;
             return null;
         }
     }

@@ -3,8 +3,9 @@ description: An example of a basic couchbase insert and find.
 
 scenarios:
   default:
-    - run driver=couchbase tags==phase:rampup cycles===1000 threads=auto
-    - run driver=couchbase tags==phase:main cycles===1000 threads=auto
+    - run driver=couchbase tags==phase:rampup cycles===100000 threads=auto
+    - run driver=couchbase tags==phase:main cycles===100000 threads=auto
+
 bindings:
   seq_key: Mod(<<keyCount:1000000>>L); ToInt()
   seq_value: Mod(<<valueCount:1000000000>>L); <<valueSizeDist:Hash()>>; ToString() -> String
@@ -39,4 +40,4 @@ blocks:
     ops:
       - main-insert: |
           UPSERT INTO `<<bucket:testbucket>>`.<<scope:_default>>.<<collection:_default>> (KEY, VALUE)
-          VALUES ("{seq_key}", {seq_value});
+          VALUES ("{rw_key}", {rw_value});

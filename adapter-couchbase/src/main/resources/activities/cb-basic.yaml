@@ -3,8 +3,9 @@ description: An example of a basic couchbase insert and retrieve.
 
 scenarios:
   default:
-    - run driver=couchbase tags==phase:rampup cycles===1000 threads=auto
-    - run driver=couchbase tags==phase:main cycles===1000 threads=auto
+    - run driver=couchbase tags==phase:rampup cycles===100000 threads=auto
+    - run driver=couchbase tags==phase:main cycles===100000 threads=auto
+
 bindings:
   seq_key: Mod(<<keyCount:1000000>>L); ToInt()
   seq_value: Mod(<<valueCount:1000000000>>L); <<valueSizeDist:Hash()>>; ToString() -> String
@@ -45,17 +46,17 @@ blocks:
 #      durability: PERSIST_TO_MAJORITY
     ops:
       main-upsert:
-        upsert: "{seq_key}"
+        upsert: "{rw_key}"
         content: |
           {
-            "key": "{seq_value}"
+            "key": "{rw_value}"
           }
   - name: main-remove
     tags:
       phase: main
       type: write
     params:
-      ratio: <<write_ratio:1>>
+      ratio: <<remove_ratio:1>>
     ops:
       main-remove:
-        remove: "{seq_key}"
+        remove: "{rw_key}"
