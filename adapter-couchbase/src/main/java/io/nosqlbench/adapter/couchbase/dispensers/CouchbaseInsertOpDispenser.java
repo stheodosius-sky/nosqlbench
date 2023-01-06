@@ -26,13 +26,15 @@ import io.nosqlbench.engine.api.templating.ParsedOp;
 
 import java.util.function.LongFunction;
 
+import static io.nosqlbench.adapter.couchbase.utils.OpUtils.createContentFunc;
+
 public class CouchbaseInsertOpDispenser extends BaseOpDispenser<Op, CouchbaseSpace> {
 
     private final Bucket bucket;
     private final String scope;
     private final String collection;
     private final LongFunction<String> idFunc;
-    private final LongFunction<String> contentFunc;
+    private final LongFunction<? extends Object> contentFunc;
 
     public CouchbaseInsertOpDispenser(DriverAdapter adapter, Bucket bucket, ParsedOp op) {
         super(adapter, op);
@@ -53,10 +55,6 @@ public class CouchbaseInsertOpDispenser extends BaseOpDispenser<Op, CouchbaseSpa
 
     private LongFunction<String> createIdFunc(ParsedOp op) {
         return op.getAsRequiredFunction("insert", String.class);
-    }
-
-    private LongFunction<String> createContentFunc(ParsedOp op) {
-        return op.getAsRequiredFunction("content", String.class);
     }
 
     @Override

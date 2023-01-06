@@ -34,9 +34,9 @@ public class CouchbaseUpsertOp implements CycleOp<MutationResult> {
     private String scope;
     private String collection;
     private String id;
-    private String content;
+    private Object content;
 
-    public CouchbaseUpsertOp(Bucket bucket, String scope, String collection, String id, String content) {
+    public CouchbaseUpsertOp(Bucket bucket, String scope, String collection, String id, Object content) {
         this.bucket = bucket;
         this.scope = scope;
         this.collection = collection;

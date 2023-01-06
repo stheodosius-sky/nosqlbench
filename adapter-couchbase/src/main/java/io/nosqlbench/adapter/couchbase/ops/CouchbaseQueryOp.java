@@ -37,7 +37,7 @@ public class CouchbaseQueryOp implements CycleOp<QueryResult> {
 
     private final Cluster cluster;
     private final String query;
-    private long resultSize;
+    private long resultSize = -1;
 
     // https://docs.couchbase.com/server/current/learn/services-and-indexes/services/query-service.html
     public CouchbaseQueryOp(Cluster cluster, String query) {
