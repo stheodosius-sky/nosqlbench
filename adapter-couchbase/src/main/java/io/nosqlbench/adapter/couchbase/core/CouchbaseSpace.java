@@ -98,8 +98,7 @@ public class CouchbaseSpace implements NBNamedElement, AutoCloseable {
             try {
                 this.cluster.disconnect();
             } catch (Exception ex) {
-                // todo(simon): find the root cause of this double close behaviour
-                logger.warn("timed out attempting to close the connection couchbase - this can occur because nosqlbench closes this class twice?");
+                logger.info("timed out attempting to close the connection couchbase - this can occur when the connection has already been closed");
             }
         }
     }

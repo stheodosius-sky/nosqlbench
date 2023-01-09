@@ -51,12 +51,3 @@ blocks:
           {
             "key": "{rw_value}"
           }
-  - name: main-remove
-    tags:
-      phase: main
-      type: write
-    params:
-      ratio: <<remove_ratio:1>>
-    ops:
-      main-remove:
-        remove: "{rw_key}"
