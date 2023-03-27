@@ -53,8 +53,6 @@ public class CouchbaseInsertOp implements CycleOp<MutationResult> {
             .collection(this.collection);
 
         InsertOptions options = insertOptions();
-//            .expiry(Duration.ofMillis())
-//            .durability(DurabilityLevel.valueOf()); // todo(simon): allow these options to be configured in the activity
         try {
             MutationResult result = collection.insert(this.id, this.content, options);
             return result;

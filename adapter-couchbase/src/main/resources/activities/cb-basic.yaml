@@ -42,8 +42,6 @@ blocks:
       type: write
     params:
       ratio: <<write_ratio:1>>
-#      expiry: 5m
-#      durability: PERSIST_TO_MAJORITY
     ops:
       main-upsert:
         upsert: "{rw_key}"
