@@ -18,13 +18,16 @@ package io.nosqlbench.api.docsapi;
 
 import java.util.ServiceLoader;
 
+
 public class BundledMarkdownLoader {
 
     public static DocsBinder loadBundledMarkdown() {
         ServiceLoader<BundledMarkdownManifest> loader = ServiceLoader.load(BundledMarkdownManifest.class);
-        Docs docs = new Docs();
+        DocsBinder docs = new Docs();
         for (BundledMarkdownManifest docPathInfos : loader) {
-            docs.merge(docPathInfos.getDocs());
+
+            DocsBinder docsBinder = docPathInfos.getDocs();
+            docs = docs.merge(docsBinder);
         }
 
         return docs;

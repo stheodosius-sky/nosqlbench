@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 nosqlbench
+ * Copyright (c) 2022-2023 nosqlbench
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import io.nosqlbench.engine.api.activityconfig.yaml.OpTemplate;
 import io.nosqlbench.api.config.params.ParamsParser;
 import io.nosqlbench.api.errors.BasicError;
 import io.nosqlbench.virtdata.core.bindings.BindingsTemplate;
-import io.nosqlbench.virtdata.core.templates.ParsedStringTemplate;
+import io.nosqlbench.virtdata.core.templates.ParsedTemplateString;
 import io.nosqlbench.virtdata.core.templates.StringBindings;
 import io.nosqlbench.virtdata.core.templates.StringBindingsTemplate;
 import org.apache.logging.log4j.Logger;
@@ -138,7 +138,7 @@ public class CommandTemplate {
             for (Function<String, Map<String, String>> parser : parserlist) {
                 Map<String, String> parsed = parser.apply(oneline);
                 if (parsed != null) {
-                    logger.debug("parsed request: " + parsed);
+                    logger.debug(() -> "parsed request: " + parsed);
                     cmd.putAll(parsed);
                     didParse = true;
                     break;
@@ -160,7 +160,7 @@ public class CommandTemplate {
         cmd.putAll(params);
 
         cmd.forEach((param, value) -> {
-            ParsedStringTemplate paramTemplate = new ParsedStringTemplate(value, bindings);
+            ParsedTemplateString paramTemplate = new ParsedTemplateString(value, bindings);
             if (paramTemplate.getBindPoints().size() > 0) {
                 BindingsTemplate paramBindings = new BindingsTemplate(paramTemplate.getBindPoints());
                 StringBindings paramStringBindings = new StringBindingsTemplate(value, paramBindings).resolve();

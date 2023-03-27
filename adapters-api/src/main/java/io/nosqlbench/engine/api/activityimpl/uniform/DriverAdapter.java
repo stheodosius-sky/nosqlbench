@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 nosqlbench
+ * Copyright (c) 2022-2023 nosqlbench
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -177,14 +177,15 @@ public interface DriverAdapter<OPTYPE extends Op, SPACETYPE> {
      * @return A {@link DocsBinder} which describes docs to include for a given adapter.
      */
     default DocsBinder getBundledDocs() {
-        Docs docs = new Docs().namespace("adapter-"+this.getAdapterName());
+        Docs docs = new Docs().namespace("drivers");
 
         String dev_docspath = "adapter-" + this.getAdapterName() + "/src/main/resources/docs/" + this.getAdapterName();
         String cp_docspath = "docs/" + this.getAdapterName();
-        Optional<Content<?>> bundled_docs = NBIO.local().name(dev_docspath, cp_docspath).first();
+        Optional<Content<?>> bundled_docs = NBIO.local().pathname(dev_docspath, cp_docspath).first();
         bundled_docs.map(Content::asPath).ifPresent(docs::addContentsOf);
 
-        Optional<Content<?>> maindoc = NBIO.local().name("/src/main/resources/" + this.getAdapterName() + ".md", this.getAdapterName() + ".md").first();
+        Optional<Content<?>> maindoc = NBIO.local().pathname("/src/main/resources/" + this.getAdapterName() + ".md", this.getAdapterName() + ".md").first();
+
         maindoc.map(Content::asPath).ifPresent(docs::addPath);
 
         return docs.asDocsBinder();

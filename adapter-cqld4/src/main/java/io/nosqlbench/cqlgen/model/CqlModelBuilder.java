@@ -49,7 +49,7 @@ public class CqlModelBuilder extends CqlParserBaseListener {
     @Override
     public void exitEveryRule(ParserRuleContext ctx) {
         if ((counted++ & 0b11111111111111) == 0b10000000000000) {
-            logger.trace("parsed " + counted + " elements...");
+            logger.trace(() -> "parsed " + counted + " elements...");
         }
     }
 
@@ -59,7 +59,7 @@ public class CqlModelBuilder extends CqlParserBaseListener {
         ParseTree parent = node.getParent();
         String errorNodeType = parent.getClass().getSimpleName();
 
-        logger.info("PARSE ERROR: " + errorNodeType + "\n" + node.getSourceInterval());
+        logger.info(() -> "PARSE ERROR: " + errorNodeType + "\n" + node.getSourceInterval());
 
         super.visitErrorNode(node);
     }
@@ -175,7 +175,11 @@ public class CqlModelBuilder extends CqlParserBaseListener {
 
     @Override
     public void exitTableOptionItem(CqlParser.TableOptionItemContext ctx) {
-        table.setCompactStorage(ctx.kwCompactStorage() != null);
+        if (table!=null) {
+            table.setCompactStorage(ctx.kwCompactStorage() != null);
+        } else {
+            logger.debug("table option item found with no table, this is likely for a materialized view");
+        }
     }
 
     @Override
@@ -196,8 +200,12 @@ public class CqlModelBuilder extends CqlParserBaseListener {
             .map(c -> c.getText())
             .toList();
 
-        IntStream.range(0, columns.size())
-            .forEach(i -> table.addTableClusteringOrder(columns.get(i), orders.get(i)));
+        if (table!=null) {
+            IntStream.range(0, columns.size())
+                .forEach(i -> table.addTableClusteringOrder(columns.get(i), orders.get(i)));
+        } else {
+            logger.debug("clustering order found, but not active table. This is likely for a materialized view.");
+        }
     }
 
     private String textOf(ParserRuleContext ctx) {

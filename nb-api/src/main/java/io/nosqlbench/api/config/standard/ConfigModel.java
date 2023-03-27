@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 nosqlbench
+ * Copyright (c) 2022-2023 nosqlbench
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 package io.nosqlbench.api.config.standard;
 
-import io.nosqlbench.api.engine.activityimpl.ActivityDef;
 import io.nosqlbench.api.errors.BasicError;
 
 import java.math.BigDecimal;
@@ -45,14 +44,6 @@ public class ConfigModel implements NBConfigModel {
 
     public static ConfigModel of(Class<?> ofType) {
         return new ConfigModel(ofType);
-    }
-
-    public static NBConfiguration defacto(ActivityDef def) {
-        ConfigModel configModel = new ConfigModel(Object.class);
-        for (Map.Entry<String, Object> entry : def.getParams().entrySet()) {
-            configModel.add(Param.defaultTo(entry.getKey(), entry.getValue().toString()));
-        }
-        return configModel.apply(def.getParams());
     }
 
     public <T> ConfigModel add(Param<T> param) {
@@ -131,9 +122,19 @@ public class ConfigModel implements NBConfigModel {
                     return (T) Double.valueOf(string);
                 } else if (type == BigDecimal.class) {
                     return (T) BigDecimal.valueOf(Double.parseDouble(string));
+                } else if (type == boolean.class || type == Boolean.class) {
+                    return (T) Boolean.valueOf(Boolean.parseBoolean(string));
                 } else {
                     throw new RuntimeException("CharSequence type " + type.getSimpleName() + " could " +
                         " not be converted from " + value.getClass().getSimpleName());
+                }
+            } else if (value instanceof Boolean bool) {
+                if (type == boolean.class) {
+                    return (T) bool;
+                } else {
+                    throw new RuntimeException("Boolean type " + type.getSimpleName() + " could " +
+                        " not be converted from " + value.getClass().getSimpleName());
+
                 }
             }
 
@@ -318,11 +319,10 @@ public class ConfigModel implements NBConfigModel {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("[").append(
-                params.stream().map(p -> p.getNames().get(0)).collect(Collectors.joining(",")))
-            .append("]");
+        String sb = "[" +
+            params.stream().map(p -> p.getNames().get(0)).collect(Collectors.joining(",")) +
+            "]";
 
-        return sb.toString();
+        return sb;
     }
 }

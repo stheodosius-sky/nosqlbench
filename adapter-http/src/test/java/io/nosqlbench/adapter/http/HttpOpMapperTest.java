@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 nosqlbench
+ * Copyright (c) 2022-2023 nosqlbench
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,15 @@ package io.nosqlbench.adapter.http;
 
 import io.nosqlbench.adapter.http.core.HttpOpMapper;
 import io.nosqlbench.adapter.http.core.HttpSpace;
-import io.nosqlbench.engine.api.activityconfig.StatementsLoader;
+import io.nosqlbench.api.config.standard.NBConfiguration;
+import io.nosqlbench.engine.api.activityconfig.OpsLoader;
 import io.nosqlbench.engine.api.activityconfig.yaml.OpTemplate;
-import io.nosqlbench.engine.api.activityconfig.yaml.StmtsDocList;
+import io.nosqlbench.engine.api.activityconfig.yaml.OpTemplateFormat;
+import io.nosqlbench.engine.api.activityconfig.yaml.OpsDocList;
 import io.nosqlbench.engine.api.activityimpl.uniform.DriverSpaceCache;
 import io.nosqlbench.engine.api.templating.ParsedOp;
-import io.nosqlbench.api.config.standard.NBConfiguration;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -34,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class HttpOpMapperTest {
 
+    private final static Logger logger = LogManager.getLogger(HttpOpMapperTest.class);
     static NBConfiguration cfg;
     static HttpDriverAdapter adapter;
     static HttpOpMapper mapper;
@@ -48,9 +52,9 @@ public class HttpOpMapperTest {
     }
 
     private static ParsedOp parsedOpFor(String yaml) {
-        StmtsDocList docs = StatementsLoader.loadString(yaml, Map.of());
-        OpTemplate stmtDef = docs.getStmts().get(0);
-        ParsedOp parsedOp = new ParsedOp(stmtDef, cfg, List.of(adapter.getPreprocessor()));
+        OpsDocList docs = OpsLoader.loadString(yaml, OpTemplateFormat.yaml, Map.of(), null);
+        OpTemplate opTemplate = docs.getOps().get(0);
+        ParsedOp parsedOp = new ParsedOp(opTemplate, cfg, List.of(adapter.getPreprocessor()));
         return parsedOp;
     }
 
@@ -98,7 +102,7 @@ public class HttpOpMapperTest {
     @Test
     public void testRFCFormBody() {
         ParsedOp pop = parsedOpFor("""
-                statements:
+                ops:
                  - s1: |
                     get http://localhost/
 
@@ -114,7 +118,7 @@ public class HttpOpMapperTest {
         // This can not be fully resolved in the unit testing context, but it could be
         // in the integrated testing context. It is sufficient to verify parsing here.
         ParsedOp pop = parsedOpFor("""
-                statements:
+                ops:
                  - s1: |
                     {method} {scheme}://{host}/{path}?{query} {version}
                     Header1: {header1val}
@@ -132,7 +136,7 @@ public class HttpOpMapperTest {
                  body: StaticStringMapper('test')
             """);
 
-        System.out.println(pop);
+        logger.debug(pop);
         assertThat(pop.getDefinedNames()).containsAll(List.of(
             "method","uri","version","Header1","body"
         ));

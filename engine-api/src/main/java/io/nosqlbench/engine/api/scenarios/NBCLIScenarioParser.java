@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 nosqlbench
+ * Copyright (c) 2022-2023 nosqlbench
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,11 @@
 
 package io.nosqlbench.engine.api.scenarios;
 
-import io.nosqlbench.engine.api.activityconfig.StatementsLoader;
-import io.nosqlbench.engine.api.activityconfig.rawyaml.RawStmtsLoader;
+import io.nosqlbench.engine.api.activityconfig.OpsLoader;
+import io.nosqlbench.engine.api.activityconfig.rawyaml.RawOpsLoader;
+import io.nosqlbench.engine.api.activityconfig.yaml.OpsDocList;
 import io.nosqlbench.engine.api.activityconfig.yaml.Scenarios;
-import io.nosqlbench.engine.api.activityconfig.yaml.StmtsDocList;
 import io.nosqlbench.engine.api.templating.StrInterpolator;
-import io.nosqlbench.api.config.params.Synonyms;
 import io.nosqlbench.api.content.Content;
 import io.nosqlbench.api.content.NBIO;
 import io.nosqlbench.api.content.NBPathsAPI;
@@ -51,10 +50,10 @@ public class NBCLIScenarioParser {
 
     public static boolean isFoundWorkload(String workload, String... includes) {
         Optional<Content<?>> found = NBIO.all()
-            .prefix("activities")
-            .prefix(includes)
-            .name(workload)
-            .extension(RawStmtsLoader.YAML_EXTENSIONS)
+            .searchPrefixes("activities")
+            .searchPrefixes(includes)
+            .pathname(workload)
+            .extensionSet(RawOpsLoader.YAML_EXTENSIONS)
             .first();
         return found.isPresent();
     }
@@ -65,10 +64,10 @@ public class NBCLIScenarioParser {
 
         String workloadName = arglist.removeFirst();
         Optional<Content<?>> found = NBIO.all()
-            .prefix("activities")
-            .prefix(includes)
-            .name(workloadName)
-            .extension(RawStmtsLoader.YAML_EXTENSIONS)
+            .searchPrefixes("activities")
+            .searchPrefixes(includes)
+            .pathname(workloadName)
+            .extensionSet(RawOpsLoader.YAML_EXTENSIONS)
             .first();
 //
         Content<?> workloadContent = found.orElseThrow();
@@ -94,7 +93,6 @@ public class NBCLIScenarioParser {
             && arglist.peekFirst().contains("=")
             && !arglist.peekFirst().startsWith("-")) {
             String[] arg = arglist.removeFirst().split("=", 2);
-            arg[0] = Synonyms.canonicalize(arg[0], logger);
             if (userProvidedParams.containsKey(arg[0])) {
                 throw new BasicError("duplicate occurrence of option on command line: " + arg[0]);
             }
@@ -110,13 +108,13 @@ public class NBCLIScenarioParser {
 
             // Load in named scenario
             Content<?> yamlWithNamedScenarios = NBIO.all()
-                .prefix(SEARCH_IN)
-                .prefix(includes)
-                .name(workloadName)
-                .extension(RawStmtsLoader.YAML_EXTENSIONS)
+                .searchPrefixes(SEARCH_IN)
+                .searchPrefixes(includes)
+                .pathname(workloadName)
+                .extensionSet(RawOpsLoader.YAML_EXTENSIONS)
                 .first().orElseThrow();
             // TODO: The yaml needs to be parsed with arguments from each command independently to support template vars
-            StmtsDocList scenariosYaml = StatementsLoader.loadContent(logger, yamlWithNamedScenarios, new LinkedHashMap<>(userProvidedParams));
+            OpsDocList scenariosYaml = OpsLoader.loadContent(yamlWithNamedScenarios, new LinkedHashMap<>(userProvidedParams));
             Scenarios scenarios = scenariosYaml.getDocScenarios();
 
             String[] nameparts = scenarioName.split("\\.",2);
@@ -124,7 +122,8 @@ public class NBCLIScenarioParser {
             if (nameparts.length==1) {
                 Map<String, String> namedScenario = scenarios.getNamedScenario(scenarioName);
                 if (namedScenario==null) {
-                    throw new BasicError("Named step '" + scenarioName + "' was not found.");
+                    throw new BasicError("Unable to find named scenario '" + scenarioName + "' in workload '" + workloadName
+                    + "', but you can pick from one of: " + String.join(", ", scenarios.getScenarioNames()));
                 }
                 namedSteps.putAll(namedScenario);
             } else {
@@ -140,7 +139,7 @@ public class NBCLIScenarioParser {
                 if (selectedScenario.containsKey(stepname)) {
                     namedSteps.put(stepname,selectedScenario.get(stepname));
                 } else {
-                    throw new BasicError("Unable to find named scenario.step'" + scenarioName + "' in workload '" + workloadName
+                    throw new BasicError("Unable to find named scenario.step '" + scenarioName + "' in workload '" + workloadName
                         + "', but you can pick from one of: " + selectedScenario.keySet().stream().map(n -> nameparts[0].concat(".").concat(n)).collect(Collectors.joining(", ")));
                 }
             }
@@ -208,12 +207,12 @@ public class NBCLIScenarioParser {
                 alias = (alias.startsWith("alias=") ? alias : "alias=" + alias);
                 buildingCmd.put("alias", alias);
 
-                logger.debug("rebuilt command: " + String.join(" ", buildingCmd.values()));
+                logger.debug(() -> "rebuilt command: " + String.join(" ", buildingCmd.values()));
                 buildCmdBuffer.addAll(buildingCmd.values());
             }
         }
         buildCmdBuffer.descendingIterator().forEachRemaining(arglist::addFirst);
-        logger.debug("composed command line args to fulfill named scenario: " + arglist);
+        logger.debug(() -> "composed command line args to fulfill named scenario: " + arglist);
 
     }
 
@@ -229,14 +228,19 @@ public class NBCLIScenarioParser {
     private static LinkedHashMap<String, CmdArg> parseStep(String cmd) {
         LinkedHashMap<String, CmdArg> parsedStep = new LinkedHashMap<>();
 
-        String[] namedStepPieces = cmd.split(" ");
+        String[] namedStepPieces = cmd.split(" +");
         for (String commandFragment : namedStepPieces) {
             Matcher matcher = WordAndMaybeAssignment.matcher(commandFragment);
+
+            if (commandFragment.equalsIgnoreCase("")) {
+                logger.debug("Command fragment discovered to be empty.  Skipping this fragment for cmd: {}", cmd);
+                continue;
+            }
+
             if (!matcher.matches()) {
                 throw new BasicError("Unable to recognize scenario cmd spec in '" + commandFragment + "'");
             }
             String commandName = matcher.group("name");
-            commandName = Synonyms.canonicalize(commandName, logger);
             String assignmentOp = matcher.group("oper");
             String assignedValue = matcher.group("val");
             parsedStep.put(commandName, new CmdArg(commandName, assignmentOp, assignedValue));
@@ -316,13 +320,13 @@ public class NBCLIScenarioParser {
                     }
                 }
 
-                Content<?> content = NBIO.all().prefix(SEARCH_IN)
-                    .name(referenced).extension(RawStmtsLoader.YAML_EXTENSIONS)
+                Content<?> content = NBIO.all().searchPrefixes(SEARCH_IN)
+                    .pathname(referenced).extensionSet(RawOpsLoader.YAML_EXTENSIONS)
                     .one();
 
-                StmtsDocList stmts = null;
+                OpsDocList stmts = null;
                 try {
-                    stmts = StatementsLoader.loadContent(logger, content, Map.of());
+                    stmts = OpsLoader.loadContent(content, Map.of());
                     if (stmts.getStmtDocs().size() == 0) {
                         logger.warn("Encountered yaml with no docs in '" + referenced + "'");
                         continue;
@@ -375,14 +379,14 @@ public class NBCLIScenarioParser {
 
     public static List<WorkloadDesc> getWorkloadsWithScenarioScripts(boolean defaultIncludes, String... includes) {
 
-        NBPathsAPI.GetPrefix searchin = NBIO.all();
+        NBPathsAPI.GetPrefixes searchin = NBIO.all();
         if (defaultIncludes) {
-            searchin = searchin.prefix(SEARCH_IN);
+            searchin = searchin.searchPrefixes(SEARCH_IN);
         }
 
         List<Content<?>> activities = searchin
-            .prefix(includes)
-            .extension(RawStmtsLoader.YAML_EXTENSIONS)
+            .searchPrefixes(includes)
+            .extensionSet(RawOpsLoader.YAML_EXTENSIONS)
             .list();
 
         return filterForScenarios(activities);
@@ -391,15 +395,15 @@ public class NBCLIScenarioParser {
 
     public static List<String> getScripts(boolean defaultIncludes, String... includes) {
 
-        NBPathsAPI.GetPrefix searchin = NBIO.all();
+        NBPathsAPI.GetPrefixes searchin = NBIO.all();
         if (defaultIncludes) {
-            searchin = searchin.prefix(SEARCH_IN);
+            searchin = searchin.searchPrefixes(SEARCH_IN);
         }
 
         List<Path> scriptPaths = searchin
-            .prefix("scripts/auto")
-            .prefix(includes)
-            .extension("js")
+            .searchPrefixes("scripts/auto")
+            .searchPrefixes(includes)
+            .extensionSet("js")
             .list().stream().map(Content::asPath).collect(Collectors.toList());
 
         List<String> scriptNames = new ArrayList();

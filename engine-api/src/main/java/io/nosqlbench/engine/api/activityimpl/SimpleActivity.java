@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 nosqlbench
+ * Copyright (c) 2022-2023 nosqlbench
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,11 @@
 package io.nosqlbench.engine.api.activityimpl;
 
 import com.codahale.metrics.Timer;
+import io.nosqlbench.api.config.standard.NBConfiguration;
 import io.nosqlbench.api.engine.activityimpl.ActivityDef;
+import io.nosqlbench.api.engine.metrics.ActivityMetrics;
+import io.nosqlbench.api.errors.BasicError;
+import io.nosqlbench.api.errors.OpConfigError;
 import io.nosqlbench.engine.api.activityapi.core.*;
 import io.nosqlbench.engine.api.activityapi.core.progress.ActivityMetricProgressMeter;
 import io.nosqlbench.engine.api.activityapi.core.progress.ProgressCapable;
@@ -33,18 +37,17 @@ import io.nosqlbench.engine.api.activityapi.planning.SequencerType;
 import io.nosqlbench.engine.api.activityapi.ratelimits.RateLimiter;
 import io.nosqlbench.engine.api.activityapi.ratelimits.RateLimiters;
 import io.nosqlbench.engine.api.activityapi.ratelimits.RateSpec;
-import io.nosqlbench.engine.api.activityconfig.StatementsLoader;
+import io.nosqlbench.engine.api.activityconfig.OpsLoader;
 import io.nosqlbench.engine.api.activityconfig.yaml.OpTemplate;
-import io.nosqlbench.engine.api.activityconfig.yaml.StmtsDocList;
+import io.nosqlbench.engine.api.activityconfig.yaml.OpTemplateFormat;
+import io.nosqlbench.engine.api.activityconfig.yaml.OpsDocList;
+import io.nosqlbench.engine.api.activityimpl.motor.RunStateTally;
 import io.nosqlbench.engine.api.activityimpl.uniform.DriverAdapter;
+import io.nosqlbench.engine.api.activityimpl.uniform.DryRunOpDispenserWrapper;
 import io.nosqlbench.engine.api.activityimpl.uniform.decorators.SyntheticOpTemplateProvider;
 import io.nosqlbench.engine.api.activityimpl.uniform.flowtypes.Op;
-import io.nosqlbench.api.engine.metrics.ActivityMetrics;
 import io.nosqlbench.engine.api.templating.CommandTemplate;
 import io.nosqlbench.engine.api.templating.ParsedOp;
-import io.nosqlbench.api.config.standard.NBConfiguration;
-import io.nosqlbench.api.errors.BasicError;
-import io.nosqlbench.api.errors.OpConfigError;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -82,6 +85,7 @@ public class SimpleActivity implements Activity, ProgressCapable, ActivityDefObs
     private NBErrorHandler errorHandler;
     private ActivityMetricProgressMeter progressMeter;
     private String workloadSource = "unspecified";
+    private final RunStateTally tally = new RunStateTally();
 
     public SimpleActivity(ActivityDef activityDef) {
         this.activityDef = activityDef;
@@ -95,7 +99,7 @@ public class SimpleActivity implements Activity, ProgressCapable, ActivityDefObs
             } else {
                 activityDef.getParams().set("alias",
                     activityDef.getActivityType().toUpperCase(Locale.ROOT)
-                        + String.valueOf(nameEnumerator++));
+                        + nameEnumerator++);
             }
         }
     }
@@ -105,7 +109,7 @@ public class SimpleActivity implements Activity, ProgressCapable, ActivityDefObs
     }
 
     @Override
-    public void initActivity() {
+    public synchronized void initActivity() {
         initOrUpdateRateLimiters(this.activityDef);
     }
 
@@ -190,7 +194,7 @@ public class SimpleActivity implements Activity, ProgressCapable, ActivityDefObs
     }
 
     public String toString() {
-        return getAlias();
+        return getAlias() + ":" + getRunState() + ":" + getRunStateTally().toString();
     }
 
     @Override
@@ -217,11 +221,11 @@ public class SimpleActivity implements Activity, ProgressCapable, ActivityDefObs
     @Override
     public void closeAutoCloseables() {
         for (AutoCloseable closeable : closeables) {
-            logger.debug("CLOSING " + closeable.getClass().getCanonicalName() + ": " + closeable.toString());
+            logger.debug(() -> "CLOSING " + closeable.getClass().getCanonicalName() + ": " + closeable);
             try {
                 closeable.close();
             } catch (Exception e) {
-                throw new RuntimeException("Error closing " + closeable);
+                throw new RuntimeException("Error closing " + closeable + ": " + e, e);
             }
         }
         closeables.clear();
@@ -349,11 +353,11 @@ public class SimpleActivity implements Activity, ProgressCapable, ActivityDefObs
      *
      * @param seq - The {@link OpSequence} to derive the defaults from
      */
-    public void setDefaultsFromOpSequence(OpSequence<?> seq) {
+    public synchronized void setDefaultsFromOpSequence(OpSequence<?> seq) {
         Optional<String> strideOpt = getParams().getOptionalString("stride");
         if (strideOpt.isEmpty()) {
             String stride = String.valueOf(seq.getSequence().length);
-            logger.info("defaulting stride to " + stride + " (the sequence length)");
+            logger.info(() -> "defaulting stride to " + stride + " (the sequence length)");
 //            getParams().set("stride", stride);
             getParams().setSilently("stride", stride);
         }
@@ -361,7 +365,7 @@ public class SimpleActivity implements Activity, ProgressCapable, ActivityDefObs
         Optional<String> cyclesOpt = getParams().getOptionalString("cycles");
         if (cyclesOpt.isEmpty()) {
             String cycles = getParams().getOptionalString("stride").orElseThrow();
-            logger.info("defaulting cycles to " + cycles + " (the stride length)");
+            logger.info(() -> "defaulting cycles to " + cycles + " (the stride length)");
 //            getParams().set("cycles", getParams().getOptionalString("stride").orElseThrow());
             getParams().setSilently("cycles", getParams().getOptionalString("stride").orElseThrow());
         } else {
@@ -384,7 +388,7 @@ public class SimpleActivity implements Activity, ProgressCapable, ActivityDefObs
         long stride = getActivityDef().getParams().getOptionalLong("stride").orElseThrow();
 
         if (stride > 0 && (cycleCount % stride) != 0) {
-            logger.warn("The stride does not evenly divide cycles. Only full strides will be executed," +
+            logger.warn(() -> "The stride does not evenly divide cycles. Only full strides will be executed," +
                 "leaving some cycles unused. (stride=" + stride + ", cycles=" + cycleCount + ")");
         }
 
@@ -392,7 +396,7 @@ public class SimpleActivity implements Activity, ProgressCapable, ActivityDefObs
         if (threadSpec.isPresent()) {
             String spec = threadSpec.get();
             int processors = Runtime.getRuntime().availableProcessors();
-            if (spec.toLowerCase().equals("auto")) {
+            if (spec.equalsIgnoreCase("auto")) {
                 int threads = processors * 10;
                 if (threads > activityDef.getCycleCount()) {
                     threads = (int) activityDef.getCycleCount();
@@ -405,23 +409,23 @@ public class SimpleActivity implements Activity, ProgressCapable, ActivityDefObs
             } else if (spec.toLowerCase().matches("\\d+x")) {
                 String multiplier = spec.substring(0, spec.length() - 1);
                 int threads = processors * Integer.parseInt(multiplier);
-                logger.info("setting threads to " + threads + " (" + multiplier + "x)");
+                logger.info(() -> "setting threads to " + threads + " (" + multiplier + "x)");
 //                activityDef.setThreads(threads);
                 activityDef.getParams().setSilently("threads", threads);
             } else if (spec.toLowerCase().matches("\\d+")) {
-                logger.info("setting threads to " + spec + " (direct)");
+                logger.info(() -> "setting threads to " + spec + " (direct)");
 //                activityDef.setThreads(Integer.parseInt(spec));
                 activityDef.getParams().setSilently("threads", Integer.parseInt(spec));
             }
 
             if (activityDef.getThreads() > activityDef.getCycleCount()) {
-                logger.warn("threads=" + activityDef.getThreads() + " and cycles=" + activityDef.getCycleSummary()
+                logger.warn(() -> "threads=" + activityDef.getThreads() + " and cycles=" + activityDef.getCycleSummary()
                     + ", you should have more cycles than threads.");
             }
 
         } else {
             if (cycleCount > 1000) {
-                logger.warn("For testing at scale, it is highly recommended that you " +
+                logger.warn(() -> "For testing at scale, it is highly recommended that you " +
                     "set threads to a value higher than the default of 1." +
                     " hint: you can use threads=auto for reasonable default, or" +
                     " consult the topic on threads with `help threads` for" +
@@ -472,7 +476,6 @@ public class SimpleActivity implements Activity, ProgressCapable, ActivityDefObs
             List<Long> ratios = new ArrayList<>(pops.size());
 
             for (int i = 0; i < pops.size(); i++) {
-
                 ParsedOp pop = pops.get(i);
                 long ratio = pop.takeStaticConfigOr("ratio", 1);
                 ratios.add(ratio);
@@ -484,21 +487,35 @@ public class SimpleActivity implements Activity, ProgressCapable, ActivityDefObs
                 .orElse(SequencerType.bucket);
             SequencePlanner<OpDispenser<? extends O>> planner = new SequencePlanner<>(sequencerType);
 
+            int dryrunCount = 0;
             for (int i = 0; i < pops.size(); i++) {
                 long ratio = ratios.get(i);
                 ParsedOp pop = pops.get(i);
-                if (ratio==0) {
-                    logger.info("skipped mapping op '" + pop.getName() + "'");
+                if (ratio == 0) {
+                    logger.info(() -> "skipped mapping op '" + pop.getName() + "'");
                     continue;
                 }
+                String dryrunSpec = pop.takeStaticConfigOr("dryrun", "none");
+                boolean dryrun = dryrunSpec.equalsIgnoreCase("op");
+
                 DriverAdapter adapter = adapters.get(i);
                 OpMapper opMapper = adapter.getOpMapper();
                 OpDispenser<? extends Op> dispenser = opMapper.apply(pop);
+
+                if (dryrun) {
+                    dispenser = new DryRunOpDispenserWrapper(adapter, pop, dispenser);
+                    dryrunCount++;
+                }
+
 //                if (strict) {
 //                    optemplate.assertConsumed();
 //                }
                 planner.addOp((OpDispenser<? extends O>) dispenser, ratio);
             }
+            if (dryrunCount > 0) {
+                logger.warn("initialized " + dryrunCount + " op templates for dry run only. These ops will be synthesized for each cycle, but will not be executed.");
+            }
+
 
             return planner.resolve();
 
@@ -532,26 +549,37 @@ public class SimpleActivity implements Activity, ProgressCapable, ActivityDefObs
     protected List<OpTemplate> loadOpTemplates(Optional<DriverAdapter> defaultDriverAdapter) {
 
         String tagfilter = activityDef.getParams().getOptionalString("tags").orElse("");
-//        StrInterpolator interp = new StrInterpolator(activityDef);
 
-        StmtsDocList stmtsDocList = loadStmtsDocList();
+        OpsDocList opsDocList = loadStmtsDocList();
 
-
-        List<OpTemplate> unfilteredOps = stmtsDocList.getStmts();
-        List<OpTemplate> filteredOps = stmtsDocList.getStmts(tagfilter);
+        List<OpTemplate> unfilteredOps = opsDocList.getOps();
+        List<OpTemplate> filteredOps = opsDocList.getOps(tagfilter);
 
         if (filteredOps.size() == 0) {
-            if (unfilteredOps.size() > 0) {
-                throw new BasicError("There were no active statements with tag filter '"
+            if (unfilteredOps.size() > 0) { // There were no ops, and it was because they were all filtered out
+                throw new BasicError("There were no active op templates with tag filter '"
                     + tagfilter + "', since all " + unfilteredOps.size() + " were filtered out.");
             } else {
+                // There were no ops, and it *wasn't* because they were all filtered out.
+
+                // In this case, let's try to synthesize the ops as long as at least a default driver was provided
                 if (defaultDriverAdapter.isPresent() && defaultDriverAdapter.get() instanceof SyntheticOpTemplateProvider sotp) {
-                    filteredOps = sotp.getSyntheticOpTemplates(stmtsDocList, getActivityDef().getParams());
+                    filteredOps = sotp.getSyntheticOpTemplates(opsDocList, getActivityDef().getParams());
                     Objects.requireNonNull(filteredOps);
+                    if (filteredOps.size() == 0) {
+                        throw new BasicError("Attempted to create synthetic ops from driver '" + defaultDriverAdapter.get().getAdapterName() + "'" +
+                            " but no ops were created. You must provide either a workload or an op parameter. Activities require op templates.");
+                    }
+                } else { // But if there were no ops, and there was no default driver provided, we can't continue
+                    throw new BasicError("""
+                        No op templates were provided. You must provide one of these activity parameters:
+                        1) workload=some.yaml
+                        2) op='inline template'
+                        3) driver=stdout (or any other drive that can synthesize ops)""");
                 }
             }
             if (filteredOps.size() == 0) {
-                throw new BasicError("There were no active statements with tag filter '" + tagfilter + "'");
+                throw new BasicError("There were no active op templates with tag filter '" + tagfilter + "'");
             }
         }
 
@@ -586,8 +614,8 @@ public class SimpleActivity implements Activity, ProgressCapable, ActivityDefObs
      * taken as the only provided statement.</LI>
      * <LI>If a 'yaml, or 'workload' parameter is provided, then the statements in that file
      * are taken with their ratios </LI>
-     * <LI>Any provided tags filter is used to select only the statements which have matching
-     * tags. If no tags are provided, then all the found statements are included.</LI>
+     * <LI>Any provided tags filter is used to select only the op templates which have matching
+     * tags. If no tags are provided, then all the found op templates are included.</LI>
      * <LI>The ratios and the 'seq' parameter are used to build a sequence of the ready operations,
      * where the sequence length is the sum of the ratios.</LI>
      * </OL>
@@ -634,25 +662,23 @@ public class SimpleActivity implements Activity, ProgressCapable, ActivityDefObs
         return planner.resolve();
     }
 
-    protected StmtsDocList loadStmtsDocList() {
+    protected OpsDocList loadStmtsDocList() {
 
         try {
-            StmtsDocList stmtsDocList = null;
-
             Optional<String> stmt = activityDef.getParams().getOptionalString("op", "stmt", "statement");
             Optional<String> op_yaml_loc = activityDef.getParams().getOptionalString("yaml", "workload");
             if (stmt.isPresent()) {
-                stmtsDocList = StatementsLoader.loadStmt(logger, stmt.get(), activityDef.getParams());
                 workloadSource = "commandline:" + stmt.get();
+                return OpsLoader.loadString(stmt.get(), OpTemplateFormat.inline, activityDef.getParams(), null);
             } else if (op_yaml_loc.isPresent()) {
-                stmtsDocList = StatementsLoader.loadPath(logger, op_yaml_loc.get(), activityDef.getParams(), "activities");
                 workloadSource = "yaml:" + op_yaml_loc.get();
+                return OpsLoader.loadPath(op_yaml_loc.get(), activityDef.getParams(), "activities");
             }
 
-            return stmtsDocList;
+            return OpsDocList.none();
 
         } catch (Exception e) {
-            throw new OpConfigError("Error loading op templates: " + e.toString(), workloadSource, e);
+            throw new OpConfigError("Error loading op templates: " + e, workloadSource, e);
         }
 
     }
@@ -675,6 +701,11 @@ public class SimpleActivity implements Activity, ProgressCapable, ActivityDefObs
     @Override
     public int getMaxTries() {
         return getActivityDef().getParams().getOptionalInteger("maxtries").orElse(10);
+    }
+
+    @Override
+    public RunStateTally getRunStateTally() {
+        return tally;
     }
 
 

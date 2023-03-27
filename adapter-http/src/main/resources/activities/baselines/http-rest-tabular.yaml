@@ -1,4 +1,4 @@
-min_version: "4.17.15"
+min_version: "5.17.1"
 
 description: |
   This workload emulates a tabular workload with partitions, clusters, and data fields.
@@ -6,30 +6,29 @@ description: |
   - We need to URLEncode the `data` and `data_write` bindings because newlines can't be sent in REST calls.
   - There is no instrumentation with the http driver.
   - There is no async mode with the http driver.
+  - Refer to 'http-rest.md' for more information.
 
 scenarios:
   default:
-    schema: run driver=http tags==block:schema threads==1 cycles==UNDEF
-    rampup: run driver=http tags==block:rampup cycles===TEMPLATE(rampup-cycles,10000000) threads=auto
-    main: run driver=http tags==block:main cycles===TEMPLATE(main-cycles,10000000) threads=auto
+    schema: run driver=http tags==block:"schema.*" threads==1 cycles==UNDEF
+    rampup: run driver=http tags==block:"rampup.*" cycles===TEMPLATE(rampup-cycles,10) threads=auto
+    main: run driver=http tags==block:"main.*" cycles===TEMPLATE(main-cycles,10) threads=auto
 
 bindings:
-  # To enable an optional weighted set of hosts in place of a load balancer
-  # Examples
-  #   single host: stargate_host=host1
-  #   multiple hosts: stargate_host=host1,host2,host3
-  #   multiple weighted hosts: stargate_host=host1:3,host2:7
-  weighted_hosts: WeightedStrings('<<stargate_host:stargate>>')
-  # http request id
+  weighted_hosts: WeightedStrings('<<restapi_host:stargate>>')
   request_id: ToHashedUUID(); ToString();
+  auto_gen_token: Discard(); StargateToken('http://localhost:8081/v1/auth'); ToString();
+
   # for ramp-up and verify
   part_layout: Div(<<partsize:1000000>>); ToString() -> String
   clust_layout: Mod(<<partsize:1000000>>); ToString() -> String
   data: HashedFileExtractToString('data/lorem_ipsum_full.txt',50,150); URLEncode();
+
   # for read
   limit: Uniform(1,10) -> int
   part_read: Uniform(0,<<partcount:100>>)->int; ToString() -> String
   clust_read: Add(1); Uniform(0,<<partsize:1000000>>)->int; ToString() -> String
+
   # for write
   part_write: Hash(); Uniform(0,<<partcount:100>>)->int; ToString() -> String
   clust_write: Hash(); Add(1); Uniform(0,<<partsize:1000000>>)->int; ToString() -> String
@@ -39,119 +38,102 @@ blocks:
   schema:
     ops:
       create-keyspace:
-        op: POST <<protocol:http>>://{weighted_hosts}:<<stargate_port:8082>><<path_prefix:>>/v2/schemas/keyspaces
+        method: POST
+        uri: <<protocol:http>>://{weighted_hosts}:<<restapi_port:8082>><<path_prefix:>>/v2/schemas/keyspaces
         Accept: "application/json"
         X-Cassandra-Request-Id: "{request_id}"
-        X-Cassandra-Token: "<<auth_token:my_auth_token>>"
+        X-Cassandra-Token: "<<auth_token:{auto_gen_token}>>"
         Content-Type: "application/json"
-        body: |
+        body: >2
           {
-              "name": "<<keyspace:baselines>>",
-              "replicas": <<rf:1>>
+            "name": "<<keyspace:baselines>>",
+            "replicas": <<rf:1>>
           }
+
+      drop-table:
+        method: DELETE
+        uri: <<protocol:http>>://{weighted_hosts}:<<restapi_port:8082>><<path_prefix:>>/v2/schemas/keyspaces/<<keyspace:baselines>>/tables/<<table:tabular>>
+        Accept: "application/json"
+        X-Cassandra-Request-Id: "{request_id}"
+        X-Cassandra-Token: "<<auth_token:{auto_gen_token}>>"
+        Content-Type: "application/json"
+        ok-status: "[2-4][0-9][0-9]"
+
       create-table:
-        op: POST <<protocol:http>>://{weighted_hosts}:<<stargate_port:8082>><<path_prefix:>>/v2/schemas/keyspaces/<<keyspace:baselines>>/tables
+        method: POST
+        uri: <<protocol:http>>://{weighted_hosts}:<<restapi_port:8082>><<path_prefix:>>/v2/schemas/keyspaces/<<keyspace:baselines>>/tables
         Accept: "application/json"
         X-Cassandra-Request-Id: "{request_id}"
-        X-Cassandra-Token: "<<auth_token:my_auth_token>>"
+        X-Cassandra-Token: "<<auth_token:{auto_gen_token}>>"
         Content-Type: "application/json"
-        body: |
+        body: >2
           {
-              "name": "<<table:tabular>>",
-              "columnDefinitions": [
-                  {
-                      "name": "part",
-                      "typeDefinition": "text"
-                  },
-                  {
-                      "name": "clust",
-                      "typeDefinition": "text"
-                  },
-                  {
-                      "name": "data",
-                      "typeDefinition": "text"
-                  }
-              ],
-              "primaryKey": {
-                  "partitionKey": [
-                      "part"
-                  ],
-                  "clusteringKey": [
-                      "clust"
-                  ]
+            "name": "<<table:tabular>>",
+            "columnDefinitions": [
+              {
+                "name": "part",
+                "typeDefinition": "text"
               },
-              "ifNotExists": true
-          }
-  schema-astra:
-    ops:
-      create-table-astra:
-        op: POST <<protocol:http>>://{weighted_hosts}:<<stargate_port:8082>><<path_prefix:>>/v2/schemas/keyspaces/<<keyspace:baselines>>/tables
-        Accept: "application/json"
-        X-Cassandra-Request-Id: "{request_id}"
-        X-Cassandra-Token: "<<auth_token:my_auth_token>>"
-        Content-Type: "application/json"
-        body: |
-          {
-              "name": "<<table:tabular>>",
-              "columnDefinitions": [
-                  {
-                      "name": "part",
-                      "typeDefinition": "text"
-                  },
-                  {
-                      "name": "clust",
-                      "typeDefinition": "text"
-                  },
-                  {
-                      "name": "data",
-                      "typeDefinition": "text"
-                  }
-              ],
-              "primaryKey": {
-                  "partitionKey": [
-                      "part"
-                  ],
-                  "clusteringKey": [
-                      "clust"
-                  ]
+              {
+                "name": "clust",
+                "typeDefinition": "text"
               },
-              "ifNotExists": true
+              {
+                "name": "data",
+                "typeDefinition": "text"
+              }
+            ],
+            "primaryKey": {
+              "partitionKey": [
+                  "part"
+              ],
+              "clusteringKey": [
+                  "clust"
+              ]
+            },
+            "ifNotExists": true
           }
+
   rampup:
     ops:
       rampup-insert:
-        op: POST <<protocol:http>>://{weighted_hosts}:<<stargate_port:8082>><<path_prefix:>>/v2/keyspaces/<<keyspace:baselines>>/<<table:tabular>>
+        method: POST
+        uri: <<protocol:http>>://{weighted_hosts}:<<restapi_port:8082>><<path_prefix:>>/v2/keyspaces/<<keyspace:baselines>>/<<table:tabular>>
         Accept: "application/json"
         X-Cassandra-Request-Id: "{request_id}"
-        X-Cassandra-Token: "<<auth_token:my_auth_token>>"
+        X-Cassandra-Token: "<<auth_token:{auto_gen_token}>>"
         Content-Type: "application/json"
-        body: |
+        body: >2
           {
             "part": "{part_layout}",
             "clust": "{clust_layout}",
             "data": "{data}"
           }
+
   main-read:
     params:
       ratio: 5
     ops:
       main-select:
-        op: GET <<protocol:http>>://{weighted_hosts}:<<stargate_port:8082>><<path_prefix:>>/v2/keyspaces/<<keyspace:baselines>>/<<table:tabular>>/{part_read}&page-size={limit}
+        method: GET
+        uri: <<protocol:http>>://{weighted_hosts}:<<restapi_port:8082>><<path_prefix:>>/v2/keyspaces/<<keyspace:baselines>>/<<table:tabular>>/{part_read}&page-size={limit}
         Accept: "application/json"
         X-Cassandra-Request-Id: "{request_id}"
-        X-Cassandra-Token: "<<auth_token:my_auth_token>>"
+        X-Cassandra-Token: "<<auth_token:{auto_gen_token}>>"
         Content-Type: "application/json"
+
   main-write:
     params:
       ratio: 5
     ops:
       main-write:
-        op: POST <<protocol:http>>://{weighted_hosts}:<<stargate_port:8082>><<path_prefix:>>/v2/keyspaces/<<keyspace:baselines>>/<<table:tabular>>
+        method: POST
+        uri: <<protocol:http>>://{weighted_hosts}:<<restapi_port:8082>><<path_prefix:>>/v2/keyspaces/<<keyspace:baselines>>/<<table:tabular>>
         Accept: "application/json"
         X-Cassandra-Request-Id: "{request_id}"
-        X-Cassandra-Token: "<<auth_token:my_auth_token>>"
+        X-Cassandra-Token: "<<auth_token:{auto_gen_token}>>"
         Content-Type: "application/json"
-        body: |
+        body: >2
           {
             "part": "{part_write}",
             "clust": "{clust_write}",

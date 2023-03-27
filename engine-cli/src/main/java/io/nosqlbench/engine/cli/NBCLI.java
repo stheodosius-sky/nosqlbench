@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 nosqlbench
+ * Copyright (c) 2022-2023 nosqlbench
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,21 +25,24 @@ import io.nosqlbench.api.errors.BasicError;
 import io.nosqlbench.api.logging.NBLogLevel;
 import io.nosqlbench.api.metadata.SessionNamer;
 import io.nosqlbench.api.metadata.SystemId;
-import io.nosqlbench.api.spi.BundledApp;
+import io.nosqlbench.api.apps.BundledApp;
 import io.nosqlbench.engine.api.activityapi.cyclelog.outputs.cyclelog.CycleLogDumperUtility;
 import io.nosqlbench.engine.api.activityapi.cyclelog.outputs.cyclelog.CycleLogImporterUtility;
 import io.nosqlbench.engine.api.activityapi.input.InputType;
 import io.nosqlbench.engine.api.activityapi.output.OutputType;
-import io.nosqlbench.engine.api.activityconfig.rawyaml.RawStmtsLoader;
+import io.nosqlbench.engine.api.activityconfig.rawyaml.RawOpsLoader;
 import io.nosqlbench.engine.core.annotation.Annotators;
-import io.nosqlbench.engine.core.lifecycle.*;
+import io.nosqlbench.engine.core.lifecycle.process.NBCLIErrorHandler;
+import io.nosqlbench.engine.core.lifecycle.activity.ActivityTypeLoader;
+import io.nosqlbench.engine.core.lifecycle.process.ShutdownManager;
+import io.nosqlbench.engine.core.lifecycle.scenario.ScenariosResults;
 import io.nosqlbench.engine.core.logging.LoggerConfig;
-import io.nosqlbench.engine.core.metadata.MarkdownDocInfo;
+import io.nosqlbench.engine.core.metadata.MarkdownFinder;
 import io.nosqlbench.engine.core.metrics.MetricReporters;
-import io.nosqlbench.engine.core.script.MetricsMapper;
-import io.nosqlbench.engine.core.script.Scenario;
-import io.nosqlbench.engine.core.script.ScenariosExecutor;
-import io.nosqlbench.engine.core.script.ScriptParams;
+import io.nosqlbench.engine.core.lifecycle.scenario.script.MetricsMapper;
+import io.nosqlbench.engine.core.lifecycle.scenario.Scenario;
+import io.nosqlbench.engine.core.lifecycle.scenario.ScenariosExecutor;
+import io.nosqlbench.engine.core.lifecycle.scenario.script.ScriptParams;
 import io.nosqlbench.engine.docker.DockerMetricsManager;
 import io.nosqlbench.nb.annotations.Maturity;
 import io.nosqlbench.nb.annotations.Service;
@@ -56,7 +59,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.locks.LockSupport;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -163,7 +165,11 @@ public class NBCLI implements Function<String[], Integer> {
 
         logger = LogManager.getLogger("NBCLI");
         loggerConfig.purgeOldFiles(LogManager.getLogger("SCENARIO"));
-        logger.info("Configured scenario log at " + loggerConfig.getLogfileLocation());
+        if (logger.isInfoEnabled()) {
+            logger.info(() -> "Configured scenario log at " + loggerConfig.getLogfileLocation());
+        } else {
+            System.err.println("Configured scenario log at " + loggerConfig.getLogfileLocation());
+        }
         logger.debug("Scenario log started");
 
         // Global only processing
@@ -172,9 +178,9 @@ public class NBCLI implements Function<String[], Integer> {
             return EXIT_OK;
         }
 
-        logger.info("Running NoSQLBench Version " + new VersionInfo().getVersion());
-        logger.info("command-line: " + Arrays.stream(args).collect(Collectors.joining(" ")));
-        logger.info("client-hardware: " + SystemId.getHostSummary());
+        logger.info(() -> "Running NoSQLBench Version " + new VersionInfo().getVersion());
+        logger.info(() -> "command-line: " + Arrays.stream(args).collect(Collectors.joining(" ")));
+        logger.info(() -> "client-hardware: " + SystemId.getHostSummary());
 
 
         // Invoke any bundled app which matches the name of the first non-option argument, if it exists.
@@ -184,7 +190,7 @@ public class NBCLI implements Function<String[], Integer> {
             BundledApp app = apploader.get().orElse(null);
             if (app != null) {
                 String[] appargs = Arrays.copyOfRange(args, 1, args.length);
-                logger.info("invoking bundled app '" + args[0] + "' (" + app.getClass().getSimpleName() + ").");
+                logger.info(() -> "invoking bundled app '" + args[0] + "' (" + app.getClass().getSimpleName() + ").");
                 globalOptions.setWantsStackTraces(true);
                 int result = app.applyAsInt(appargs);
                 return result;
@@ -297,19 +303,19 @@ public class NBCLI implements Function<String[], Integer> {
 
         if (options.wantsToCopyResource()) {
             String resourceToCopy = options.wantsToCopyResourceNamed();
-            logger.debug("user requests to copy out " + resourceToCopy);
+            logger.debug(() -> "user requests to copy out " + resourceToCopy);
 
             Optional<Content<?>> tocopy = NBIO.classpath()
-                .prefix("activities")
-                .prefix(options.wantsIncludes())
-                .name(resourceToCopy).extension(RawStmtsLoader.YAML_EXTENSIONS).first();
+                .searchPrefixes("activities")
+                .searchPrefixes(options.wantsIncludes())
+                .pathname(resourceToCopy).extensionSet(RawOpsLoader.YAML_EXTENSIONS).first();
 
             if (tocopy.isEmpty()) {
 
                 tocopy = NBIO.classpath()
-                    .prefix().prefix(options.wantsIncludes())
-                    .prefix(options.wantsIncludes())
-                    .name(resourceToCopy).first();
+                    .searchPrefixes().searchPrefixes(options.wantsIncludes())
+                    .searchPrefixes(options.wantsIncludes())
+                    .pathname(resourceToCopy).first();
             }
 
             Content<?> data = tocopy.orElseThrow(
@@ -327,7 +333,7 @@ public class NBCLI implements Function<String[], Integer> {
             } catch (IOException e) {
                 throw new BasicError("Unable to write to " + writeTo + ": " + e.getMessage());
             }
-            logger.info("Copied internal resource '" + data.asPath() + "' to '" + writeTo + "'");
+            logger.info(() -> "Copied internal resource '" + data.asPath() + "' to '" + writeTo + "'");
             return EXIT_OK;
 
         }
@@ -353,7 +359,7 @@ public class NBCLI implements Function<String[], Integer> {
         }
 
         if (options.wantsTopicalHelp()) {
-            Optional<String> helpDoc = MarkdownDocInfo.forHelpTopic(options.wantsTopicalHelpFor());
+            Optional<String> helpDoc = MarkdownFinder.forHelpTopic(options.wantsTopicalHelpFor());
             System.out.println(helpDoc.orElseThrow(
                 () -> new RuntimeException("No help could be found for " + options.wantsTopicalHelpFor())
             ));
@@ -416,12 +422,12 @@ public class NBCLI implements Function<String[], Integer> {
         }
 
         // intentionally not shown for warn-only
-        logger.info("console logging level is " + options.getConsoleLogLevel());
+        logger.info(() -> "console logging level is " + options.getConsoleLogLevel());
 
-        ScenariosExecutor executor = new ScenariosExecutor("executor-" + sessionName, 1);
+        ScenariosExecutor scenariosExecutor = new ScenariosExecutor("executor-" + sessionName, 1);
         if (options.getConsoleLogLevel().isGreaterOrEqualTo(NBLogLevel.WARN)) {
             options.setWantsStackTraces(true);
-            logger.debug("enabling stack traces since log level is " + options.getConsoleLogLevel());
+            logger.debug(() -> "enabling stack traces since log level is " + options.getConsoleLogLevel());
         }
 
         Scenario scenario = new Scenario(
@@ -466,18 +472,9 @@ public class NBCLI implements Function<String[], Integer> {
         scriptParams.putAll(buffer.getCombinedParams());
         scenario.addScenarioScriptParams(scriptParams);
 
-        executor.execute(scenario);
-
-//        while (true) {
-//            Optional<ScenarioResult> pendingResult = executor.getPendingResult(scenario.getScenarioName());
-//            if (pendingResult.isPresent()) {
-//                break;
-//            }
-//            LockSupport.parkNanos(100000000L);
-//        }
-
-        ScenariosResults scenariosResults = executor.awaitAllResults();
-        logger.debug("Total of " + scenariosResults.getSize() + " result object returned from ScenariosExecutor");
+        scenariosExecutor.execute(scenario);
+        ScenariosResults scenariosResults = scenariosExecutor.awaitAllResults();
+        logger.debug(() -> "Total of " + scenariosResults.getSize() + " result object returned from ScenariosExecutor");
 
         ActivityMetrics.closeMetrics(options.wantsEnableChart());
         scenariosResults.reportToLog();
@@ -486,7 +483,7 @@ public class NBCLI implements Function<String[], Integer> {
         logger.info(scenariosResults.getExecutionSummary());
 
         if (scenariosResults.hasError()) {
-            Exception exception = scenariosResults.getOne().getException().get();
+            Exception exception = scenariosResults.getOne().getException();
             logger.warn(scenariosResults.getExecutionSummary());
             NBCLIErrorHandler.handle(exception, options.wantsStackTraces());
             System.err.println(exception.getMessage()); // TODO: make this consistent with ConsoleLogging sequencing

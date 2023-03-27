@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 nosqlbench
+ * Copyright (c) 2022-2023 nosqlbench
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,13 @@
 
 package io.nosqlbench.virtdata.library.curves4.continuous.long_double;
 
+import io.nosqlbench.virtdata.api.annotations.Categories;
+import io.nosqlbench.virtdata.api.annotations.Category;
 import io.nosqlbench.virtdata.api.annotations.ThreadSafeMapper;
 import org.apache.commons.statistics.distribution.LevyDistribution;
 
 @ThreadSafeMapper
-public class Levy extends LongToDoubleContinuousCurve { public Levy(double mu, double c, String... mods) { super(new LevyDistribution(mu,c), mods);
+@Categories({Category.distributions})
+public class Levy extends LongToDoubleContinuousCurve { public Levy(double mu, double c, String... mods) { super(LevyDistribution.of(mu,c), mods);
     }
 }

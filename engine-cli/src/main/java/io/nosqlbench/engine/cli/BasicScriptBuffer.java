@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 nosqlbench
+ * Copyright (c) 2022-2023 nosqlbench
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,6 +72,7 @@ public class BasicScriptBuffer implements ScriptBuffer {
             case run: // run activity
             case await: // await activity
             case stop: // stop activity
+            case forceStop: // force stopping activity
             case waitMillis:
 
                 sb.append("scenario.").append(cmd).append("\n");
@@ -142,9 +143,9 @@ public class BasicScriptBuffer implements ScriptBuffer {
         String scriptData;
         String script_path = cmd.getArg("script_path");
 
-        logger.debug("Looking for " + script_path);
+        logger.debug(() -> "Looking for " + script_path);
 
-        Content<?> one = NBIO.all().prefix("scripts").name(script_path).extension("js").one();
+        Content<?> one = NBIO.all().searchPrefixes("scripts").pathname(script_path).extensionSet("js").one();
         scriptData = one.asString();
 
         StrInterpolator interpolator = new StrInterpolator(cmd.getParams());

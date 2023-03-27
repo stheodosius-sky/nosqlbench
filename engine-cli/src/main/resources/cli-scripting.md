@@ -1,8 +1,8 @@
 Running Activities and Scenarios via CLI
 ========================================
 
-PROG always runs a scenario script. However, there are multiple ways to tell
-PROG what that script should be.
+${PROG} always runs a scenario script. However, there are multiple ways to tell
+${PROG} what that script should be.
 
 Any argument in name=value format serves as a parameter to the
 script or activity that precedes it.
@@ -10,18 +10,18 @@ script or activity that precedes it.
 To create a scenario script that simply runs a single activity to completion,
 use this format:
 ~~~
-PROG activity <param>=<value> [...]
+${PROG} activity <param>=<value> [...]
 ~~~
 
 To create a scenario script that runs multiple activities concurrently,
 simply add more activities to the list:
 ~~~
-PROG activity <param>=<value> [...] activity <param>=<value> [...]
+${PROG} activity <param>=<value> [...] activity <param>=<value> [...]
 ~~~
 
 To execute a scenario script directly, simply use the format:
 ~~~
-PROG script <scriptname> [param=value [...]]
+${PROG} script <scriptname> [param=value [...]]
 ~~~
 
 Time & Size Units
@@ -55,19 +55,19 @@ so parameters may be dropped into scripts ad-hoc.
 By using the option --session-name <name>, you can name the session logfile
 that will be (over)written with execution details.
 ~~~
-PROG --session-name testsession42
+${PROG} --session-name testsession42
 ~~~
 
 ## Metric Name
 
 If you need to see what metrics are available for a particular activity type,
-you can ask PROG to instantiate an activity of that type and discover the
+you can ask ${PROG} to instantiate an activity of that type and discover the
 metrics, dumping out a list. The following form of the command shows you how
 to make a list that you can copy metric names from for scripting. If you provide
 an example activity alias that matches one of your scripts, you can use it exactly
 as it appears.
 ~~~
-PROG --list-metrics driver=diag alias=anexample
+${PROG} --list-metrics driver=diag alias=anexample
 ~~~
 This will dump a list of metric names in the shortened format that is most suitable
 for scenario script development. This format is required for the --list-metrics
@@ -88,9 +88,14 @@ To start an activity and then wait for it to complete before continuing:
 run <pram>=<value> ...
 ~~~
 
-To stop an activity by its alias:
+To stop an activity by its alias while first waiting for a required thread (motor/slot) entering a specific SlotState:
 ~~~
 stop <activity alias>
+~~~
+
+To stop an activity by its alias, without first waiting for a required thread (motor/slot) entering a specific SlotState:
+~~~
+forceStop <activity alias>
 ~~~
 
 To wait for a particular activity that has been started to complete before continuing:

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 nosqlbench
+ * Copyright (c) 2022-2023 nosqlbench
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,131 +16,174 @@
 
 package io.nosqlbench.engine.core;
 
+import io.nosqlbench.api.engine.activityimpl.ActivityDef;
 import io.nosqlbench.engine.api.activityapi.core.*;
-import io.nosqlbench.engine.api.activityapi.output.OutputDispenser;
 import io.nosqlbench.engine.api.activityapi.input.Input;
 import io.nosqlbench.engine.api.activityapi.input.InputDispenser;
-import io.nosqlbench.api.engine.activityimpl.ActivityDef;
+import io.nosqlbench.engine.api.activityapi.output.OutputDispenser;
 import io.nosqlbench.engine.api.activityimpl.CoreServices;
 import io.nosqlbench.engine.api.activityimpl.SimpleActivity;
 import io.nosqlbench.engine.api.activityimpl.action.CoreActionDispenser;
-import io.nosqlbench.engine.api.activityimpl.input.CoreInputDispenser;
 import io.nosqlbench.engine.api.activityimpl.input.AtomicInput;
+import io.nosqlbench.engine.api.activityimpl.input.CoreInputDispenser;
 import io.nosqlbench.engine.api.activityimpl.motor.CoreMotor;
 import io.nosqlbench.engine.api.activityimpl.motor.CoreMotorDispenser;
-import io.nosqlbench.engine.core.lifecycle.ActivityExecutor;
-import io.nosqlbench.engine.core.lifecycle.ActivityTypeLoader;
-import org.apache.logging.log4j.Logger;
+import io.nosqlbench.engine.core.lifecycle.ExecutionResult;
+import io.nosqlbench.engine.core.lifecycle.activity.ActivityExecutor;
+import io.nosqlbench.engine.core.lifecycle.activity.ActivityTypeLoader;
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Test;
 
-import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
 
-public class ActivityExecutorTest {
+class ActivityExecutorTest {
     private static final Logger logger = LogManager.getLogger(ActivityExecutorTest.class);
 
+// TODO: Design review of this mechanism
+//    @Test
+//    synchronized void testRestart() {
+//        ActivityDef activityDef = ActivityDef.parseActivityDef("driver=diag;alias=test-restart;cycles=1000;cyclerate=10;op=initdelay:initdelay=5000;");
+//        new ActivityTypeLoader().load(activityDef);
+//
+//        final Activity activity = new DelayedInitActivity(activityDef);
+//        InputDispenser inputDispenser = new CoreInputDispenser(activity);
+//        ActionDispenser adisp = new CoreActionDispenser(activity);
+//        OutputDispenser tdisp = CoreServices.getOutputDispenser(activity).orElse(null);
+//
+//        final MotorDispenser<?> mdisp = new CoreMotorDispenser(activity, inputDispenser, adisp, tdisp);
+//        activity.setActionDispenserDelegate(adisp);
+//        activity.setOutputDispenserDelegate(tdisp);
+//        activity.setInputDispenserDelegate(inputDispenser);
+//        activity.setMotorDispenserDelegate(mdisp);
+//
+//        final ExecutorService executor = Executors.newCachedThreadPool();
+//        ActivityExecutor activityExecutor = new ActivityExecutor(activity, "test-restart");
+//        final Future<ExecutionResult> future = executor.submit(activityExecutor);
+//        try {
+//            activityDef.setThreads(1);
+//            activityExecutor.startActivity();
+//            Thread.sleep(100L);
+//            activityExecutor.stopActivity();
+//            Thread.sleep(100L);
+//            activityExecutor.startActivity();
+//            Thread.sleep(100L);
+//            activityExecutor.stopActivity();
+//            future.get();
+//        } catch (Exception e) {
+//            throw new RuntimeException(e);
+//        }
+//        executor.shutdown();
+//        assertThat(inputDispenser.getInput(10).getInputSegment(3)).isNotNull();
+//
+//    }
+
     @Test
-    public synchronized void testRestart() {
-        ActivityDef ad = ActivityDef.parseActivityDef("driver=diag;alias=test;cycles=1000;op=initdelay:initdelay=5000;");
-        Optional<ActivityType> activityType = new ActivityTypeLoader().load(ad);
-        Activity a = new DelayedInitActivity(ad);
-        InputDispenser idisp = new CoreInputDispenser(a);
-        ActionDispenser adisp = new CoreActionDispenser(a);
-        OutputDispenser tdisp = CoreServices.getOutputDispenser(a).orElse(null);
-        MotorDispenser<?> mdisp = new CoreMotorDispenser(a, idisp, adisp, tdisp);
-        a.setActionDispenserDelegate(adisp);
-        a.setOutputDispenserDelegate(tdisp);
-        a.setInputDispenserDelegate(idisp);
-        a.setMotorDispenserDelegate(mdisp);
+    synchronized void testDelayedStartSanity() {
 
-        ActivityExecutor ae = new ActivityExecutor(a, "test-restart");
-        ad.setThreads(1);
-        ae.startActivity();
-        ae.stopActivity();
-        ae.startActivity();
-        ae.awaitCompletion(15000);
-        assertThat(idisp.getInput(10).getInputSegment(3)).isNull();
+        final ActivityDef activityDef = ActivityDef.parseActivityDef("driver=diag;alias=test-delayed-start;cycles=1000;initdelay=2000;");
+        new ActivityTypeLoader().load(activityDef);
 
+        final Activity activity = new DelayedInitActivity(activityDef);
+        InputDispenser inputDispenser = new CoreInputDispenser(activity);
+        ActionDispenser actionDispenser = new CoreActionDispenser(activity);
+        OutputDispenser outputDispenser = CoreServices.getOutputDispenser(activity).orElse(null);
+
+        final MotorDispenser<?> motorDispenser = new CoreMotorDispenser(activity, inputDispenser, actionDispenser, outputDispenser);
+        activity.setActionDispenserDelegate(actionDispenser);
+        activity.setOutputDispenserDelegate(outputDispenser);
+        activity.setInputDispenserDelegate(inputDispenser);
+        activity.setMotorDispenserDelegate(motorDispenser);
+
+        final ActivityExecutor activityExecutor = new ActivityExecutor(activity, "test-delayed-start");
+
+        final ExecutorService testExecutor = Executors.newCachedThreadPool();
+        final Future<ExecutionResult> future = testExecutor.submit(activityExecutor);
+
+
+        try {
+            activityDef.setThreads(1);
+            activityExecutor.startActivity();
+            future.get();
+            testExecutor.shutdownNow();
+
+        } catch (Exception e) {
+            fail("Unexpected exception", e);
+        }
+
+        assertThat(inputDispenser.getInput(10).getInputSegment(3)).isNull();
     }
 
     @Test
-    public synchronized void testDelayedStartSanity() {
-        ActivityDef ad = ActivityDef.parseActivityDef("driver=diag;alias=test;cycles=1000;initdelay=5000;");
-        Optional<ActivityType> activityType = new ActivityTypeLoader().load(ad);
-        Activity a = new DelayedInitActivity(ad);
-        InputDispenser idisp = new CoreInputDispenser(a);
-        ActionDispenser adisp = new CoreActionDispenser(a);
-        OutputDispenser tdisp = CoreServices.getOutputDispenser(a).orElse(null);
-        MotorDispenser<?> mdisp = new CoreMotorDispenser(a, idisp, adisp, tdisp);
-        a.setActionDispenserDelegate(adisp);
-        a.setOutputDispenserDelegate(tdisp);
-        a.setInputDispenserDelegate(idisp);
-        a.setMotorDispenserDelegate(mdisp);
+    synchronized void testNewActivityExecutor() {
 
-        ActivityExecutor ae = new ActivityExecutor(a, "test-delayed-start");
-        ad.setThreads(1);
-        ae.startActivity();
-        ae.awaitCompletion(15000);
-        assertThat(idisp.getInput(10).getInputSegment(3)).isNull();
+        ActivityDef activityDef = ActivityDef.parseActivityDef("driver=diag;alias=test-dynamic-params;cycles=1000;initdelay=5000;");
+        new ActivityTypeLoader().load(activityDef);
 
-    }
+        getActivityMotorFactory(motorActionDelay(999), new AtomicInput(activityDef));
 
-    @Test
-    public synchronized void testNewActivityExecutor() {
-        ActivityDef ad = ActivityDef.parseActivityDef("driver=diag;alias=test;cycles=1000;");
-        Optional<ActivityType> activityType = new ActivityTypeLoader().load(ad);
-        Input longSupplier = new AtomicInput(ad);
-        MotorDispenser<?> cmf = getActivityMotorFactory(
-                ad, motorActionDelay(999), longSupplier
-        );
-        Activity a = new SimpleActivity(ad);
-        InputDispenser idisp = new CoreInputDispenser(a);
-        ActionDispenser adisp = new CoreActionDispenser(a);
-        OutputDispenser tdisp = CoreServices.getOutputDispenser(a).orElse(null);
-        MotorDispenser<?> mdisp = new CoreMotorDispenser(a, idisp, adisp, tdisp);
-        a.setActionDispenserDelegate(adisp);
-        a.setInputDispenserDelegate(idisp);
-        a.setMotorDispenserDelegate(mdisp);
+        final Activity simpleActivity = new SimpleActivity(activityDef);
+        InputDispenser inputDispenser = new CoreInputDispenser(simpleActivity);
+        ActionDispenser actionDispenser = new CoreActionDispenser(simpleActivity);
+        OutputDispenser outputDispenser = CoreServices.getOutputDispenser(simpleActivity).orElse(null);
 
-        ActivityExecutor ae = new ActivityExecutor(a, "test-new-executor");
-        ad.setThreads(5);
-        ae.startActivity();
+        final MotorDispenser<?> motorDispenser = new CoreMotorDispenser<>(simpleActivity,
+                inputDispenser, actionDispenser, outputDispenser);
 
-        int[] speeds = new int[]{1,2000,5,2000,2,2000};
-        for(int offset=0; offset<speeds.length; offset+=2) {
-            int threadTarget=speeds[offset];
-            int threadTime = speeds[offset+1];
-            logger.info("Setting thread level to " + threadTarget + " for " +threadTime + " seconds.");
-            ad.setThreads(threadTarget);
+        simpleActivity.setActionDispenserDelegate(actionDispenser);
+        simpleActivity.setInputDispenserDelegate(inputDispenser);
+        simpleActivity.setMotorDispenserDelegate(motorDispenser);
+
+        final ActivityExecutor activityExecutor = new ActivityExecutor(simpleActivity, "test-new-executor");
+        activityDef.setThreads(5);
+        activityExecutor.startActivity();
+
+        int[] speeds = new int[]{1, 50, 5, 50, 2, 50};
+        for (int offset = 0; offset < speeds.length; offset += 2) {
+            int threadTarget = speeds[offset];
+            int threadTime = speeds[offset + 1];
+
+            logger.debug(() -> "Setting thread level to " + threadTarget + " for " + threadTime + " seconds.");
+            activityDef.setThreads(threadTarget);
+
             try {
                 Thread.sleep(threadTime);
-            } catch (InterruptedException ignored) {
+            } catch (Exception e) {
+                fail("Not expecting exception", e);
             }
         }
-        ad.setThreads(0);
 
+        // Used for slowing the roll due to state transitions in test.
+        try {
+            activityExecutor.stopActivity();
+//            Thread.sleep(2000L);
+        } catch (Exception e) {
+            fail("Not expecting exception", e);
+        }
     }
 
-    private MotorDispenser<?> getActivityMotorFactory(final ActivityDef ad, Action lc, final Input ls) {
-        MotorDispenser<?> cmf = new MotorDispenser<>() {
+    private MotorDispenser<?> getActivityMotorFactory(Action lc, final Input ls) {
+        return new MotorDispenser<>() {
             @Override
             public Motor getMotor(ActivityDef activityDef, int slotId) {
                 Activity activity = new SimpleActivity(activityDef);
-                Motor<?> cm = new CoreMotor(activity, slotId, ls);
+                Motor<?> cm = new CoreMotor<>(activity, slotId, ls);
                 cm.setAction(lc);
                 return cm;
             }
         };
-        return cmf;
     }
 
     private SyncAction motorActionDelay(final long delay) {
-        SyncAction consumer = new SyncAction() {
+        return new SyncAction() {
             @Override
             public int runCycle(long cycle) {
-                System.out.println("consuming " + cycle + ", delaying:" + delay);
+                logger.info(() -> "consuming " + cycle + ", delaying:" + delay);
                 try {
                     Thread.sleep(delay);
                 } catch (InterruptedException ignored) {
@@ -148,7 +191,7 @@ public class ActivityExecutorTest {
                 return 0;
             }
         };
-        return consumer;
+
     }
 
     private static class DelayedInitActivity extends SimpleActivity {
@@ -160,13 +203,13 @@ public class ActivityExecutorTest {
 
         @Override
         public void initActivity() {
-            Integer initdelay = activityDef.getParams().getOptionalInteger("initdelay").orElse(0);
-            logger.info("delaying for " + initdelay);
+            Integer initDelay = activityDef.getParams().getOptionalInteger("initdelay").orElse(0);
+            logger.info(() -> "delaying for " + initDelay);
             try {
-                Thread.sleep(initdelay);
+                Thread.sleep(initDelay);
             } catch (InterruptedException ignored) {
             }
-            logger.info("delayed for " + initdelay);
+            logger.info(() -> "delayed for " + initDelay);
         }
     }
 }

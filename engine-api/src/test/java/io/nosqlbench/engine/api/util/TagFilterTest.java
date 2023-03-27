@@ -17,6 +17,8 @@
 package io.nosqlbench.engine.api.util;
 
 import io.nosqlbench.api.engine.util.Tagged;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
@@ -26,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TagFilterTest {
 
+    private final static Logger logger = LogManager.getLogger(TagFilterTest.class);
     @Test
     public void testTagFilterNameOnly() {
         TagFilter tf = new TagFilter("name");
@@ -123,7 +126,7 @@ public class TagFilterTest {
         TagFilter tfLeft = new TagFilter("one:'four-.*' five two seven six=again ");
         TagFilter.Result result = tfLeft.matchesTaggedResult(tagged);
         assertThat(result.matched()).isFalse();
-        System.out.println(result.getLog());
+        logger.debug(result.getLog());
         assertThat(result.getLog()).contains("(☑,☐) filter(one:'four-.*' five two seven six=again) tag(one:four-five-six): did not match '^'four-.*' five two seven six=again$'");
 
     }
@@ -150,19 +153,19 @@ public class TagFilterTest {
     public void testLeadingSpaceTrimmedInQuotedTag() {
 
         Map<String, String> itemtags = new HashMap<>() {{
-            put("phase", "main");
+            put("block", "main");
         }};
 
-        TagFilter tf = new TagFilter("\"phase: main\"");
+        TagFilter tf = new TagFilter("\"block: main\"");
         assertThat(tf.matches(itemtags).matched()).isTrue();
     }
 
     @Test
     public void testAnyCondition() {
-        Map<String, String> itemtags = Map.of("phase", "main", "truck", "car");
-        TagFilter tf = new TagFilter("any(truck:car,phase:moon)");
+        Map<String, String> itemtags = Map.of("block", "main", "truck", "car");
+        TagFilter tf = new TagFilter("any(truck:car,block:moon)");
         assertThat(tf.matches(itemtags).matched()).isTrue();
-        TagFilter tf2 = new TagFilter("any(car:truck,phase:moon)");
+        TagFilter tf2 = new TagFilter("any(car:truck,block:moon)");
         assertThat(tf2.matches(itemtags).matched()).isFalse();
     }
 }

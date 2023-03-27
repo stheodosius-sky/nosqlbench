@@ -1,5 +1,5 @@
 <!--
-  ~ Copyright (c) 2022 nosqlbench
+  ~ Copyright (c) 2022-2023 nosqlbench
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
   ~ you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
     <parent>
         <artifactId>mvn-defaults</artifactId>
         <groupId>io.nosqlbench</groupId>
-        <version>4.17.31</version>
+        <version>${revision}</version>
         <relativePath>../mvn-defaults</relativePath>
     </parent>
 
@@ -34,7 +34,7 @@
         <dependency>
             <groupId>org.antlr</groupId>
             <artifactId>antlr4-runtime</artifactId>
-            <version>4.11.1</version>
+            <version>4.12.0</version>
         </dependency>
     </dependencies>
 
@@ -43,7 +43,7 @@
             <plugin>
                 <groupId>org.antlr</groupId>
                 <artifactId>antlr4-maven-plugin</artifactId>
-                <version>4.10.1</version>
+                <version>4.11.1</version>
                 <configuration>
                     <sourceDirectory>src/main/java/io/nosqlbench/virtdata/lang/grammars</sourceDirectory>
                     <arguments>
@@ -62,7 +62,6 @@
                     </execution>
                 </executions>
             </plugin>
-
             <plugin>
                 <version>3.2.0</version>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -81,7 +80,6 @@
                     <followSymLinks>false</followSymLinks>
                 </configuration>
             </plugin>
-
         </plugins>
 
     </build>

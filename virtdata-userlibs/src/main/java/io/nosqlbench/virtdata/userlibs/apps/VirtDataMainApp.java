@@ -16,10 +16,9 @@
 
 package io.nosqlbench.virtdata.userlibs.apps;
 
-import io.nosqlbench.api.spi.BundledApp;
+import io.nosqlbench.api.apps.BundledApp;
 import io.nosqlbench.nb.annotations.Service;
 import io.nosqlbench.virtdata.userlibs.apps.diagnoseapp.VirtDataDiagnoseApp;
-import io.nosqlbench.virtdata.userlibs.apps.docsapp.VirtDataGenDocsApp;
 import io.nosqlbench.virtdata.userlibs.apps.valuechecker.VirtDataCheckPerfApp;
 
 import java.util.Arrays;
@@ -31,12 +30,11 @@ import java.util.Arrays;
 public class VirtDataMainApp implements BundledApp {
 
     private final static String APP_TESTMAPPER = "testmapper";
-    private final static String APP_GENDOCS = "gendocs";
     private final static String APP_DIAGNOSE = "diagnose";
-    private final static String[] names = new String[]{APP_GENDOCS, APP_TESTMAPPER, APP_DIAGNOSE};
+    private final static String[] names = new String[]{APP_TESTMAPPER, APP_DIAGNOSE};
 
     public static boolean hasNamedApp(String appname) {
-        return (appname.equals(APP_TESTMAPPER) || appname.equals(APP_GENDOCS) || appname.equals(APP_DIAGNOSE));
+        return (appname.equals(APP_TESTMAPPER)  || appname.equals(APP_DIAGNOSE));
     }
 
     public static void main(String[] args) {
@@ -46,7 +44,7 @@ public class VirtDataMainApp implements BundledApp {
     @Override
     public int applyAsInt(String[] args) {
         if (args.length == 0) {
-            System.out.println("Usage: app (" + APP_TESTMAPPER + "|" + APP_GENDOCS + "|" + APP_DIAGNOSE +")");
+            System.out.println("Usage: app (" + APP_TESTMAPPER  +"|"+ APP_DIAGNOSE +")");
             return 1;
         }
 
@@ -58,8 +56,6 @@ public class VirtDataMainApp implements BundledApp {
 
         if (appSelection.equalsIgnoreCase(APP_TESTMAPPER)) {
             VirtDataCheckPerfApp.main(appArgs);
-        } else if (appSelection.equalsIgnoreCase(APP_GENDOCS)) {
-            VirtDataGenDocsApp.main(appArgs);
         } else if (appSelection.equalsIgnoreCase(APP_DIAGNOSE)) {
             VirtDataDiagnoseApp.main(appArgs);
         } else {

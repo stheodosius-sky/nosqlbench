@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 nosqlbench
+ * Copyright (c) 2022-2023 nosqlbench
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -103,17 +103,16 @@ public class ConfigLoader {
             String filename = data.substring("IMPORT{".length(), data.length() - 1);
             Path filepath = Path.of(filename);
 
-            data = NBIO.all().name(filename).first()
+            data = NBIO.all().pathname(filename).first()
                     .map(c -> {
-                        logger.debug("found 'data' at " + c.getURI());
+                        logger.debug(() -> "found 'data' at " + c.getURI());
                         return c.asString();
                     }).orElseThrow();
         }
 
         if (data.startsWith("{") || data.startsWith("[")) {
-            JsonParser parser = new JsonParser();
 
-            JsonElement jsonElement = parser.parse(data);
+            JsonElement jsonElement = JsonParser.parseString(data);
             if (jsonElement.isJsonArray()) {
                 JsonArray asJsonArray = jsonElement.getAsJsonArray();
                 for (JsonElement element : asJsonArray) {

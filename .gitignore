@@ -1,3 +1,4 @@
+exported_docs.zip
 .nosqlbench/**
 .run/**
 workspaces/**
@@ -17,3 +18,6 @@ bin/**
 **/generated
 **/.DS_Store
 **/generated/**
+**/.flattened-pom.xml
+**/stargate-token.txt
+/deptree.txt

@@ -9,6 +9,16 @@
 * Deprecated old drivers (conflicts, etc)
     - version conflicts (removing cql drivers 1.9.* 3.*)
 
+# Performance
+* dryrun capability
+* slightly improved rate limiter performance
+* improved concurrency tracking for activities
+  * and a bug fix for threads=1 and uncaught errors
+
+## New Topic
+* Advanced linearization features
+  * variable capture in results
+
 ## new Docs
 javadoc site
 developer guide
@@ -151,7 +161,7 @@ This puts NB on a footing to be "Modular Jar" compatible, which is a step toward
 * auto-injected statement block and statement name tags.
   - this means: You can now construct filters for specific blocks or statements simply by
     knowing their name:
-  - `tags=block:schema` or `tags='main-.*'`
+  - `tags=block:"schema.*"` or `tags='main-.*'`
 * safe usage of activity params and template vars are compatible, but may not be ambiguous. This
   means that if you have a template variable in myworkload.yaml, it must be distinctly named
   from any valid activity parameters, or an error is thrown. This eliminates a confusing source
@@ -219,11 +229,13 @@ cqlgen - takes schema.cql tablestats -> workload.yaml
 sstablegen
 
 * yaml+nb version checks
-    - `min_version: "4.17.15"`
+    - `min_version: "5.17.1"`
 
 
 * Mac M1 support
     - as of 08/15, all Mac M1 systems should be supported for the.jar and the docker image
+
+* Dry-run mode for all adapter types
 
 review:
 - 7578e91d773a9ea8113250899ef46b7aacf95e70
@@ -232,3 +244,31 @@ review:
 - 394580d66c107127cc68f88cdc64a59e9c481d43
 - 0330c18a7ba0904b3b3420b94416b04ee73dd7fb
 - 11dd8f62daf3d1603b75cdd85fbb872dbfaac111
+
+* For developers
+  * New APIs
+    * DriverAdapter
+    * SpaceCache
+    * ParsedOp
+    * OpMapper
+    * OpDispenser
+
+* Removal of Phases loop
+* Some support for console colors
+* Logging subsystem improvements
+
+* Discovery Options
+
+* Project Improvements
+* Testing and Documentation Methods
+  * Literate test examples as documentation
+* Integrated test logs are artifacts
+* Auto-generated reference docs are not auto-imported
+* Major releases are gated by static analysis audits
+* We're adding code coverage
+* We've added more developers to the project
+* Testing Improvements - stability and low-core build systems (gh actions)
+
+* config
+  * options can be mutually exclusive, like the thread-local rate and the per-activity rate
+

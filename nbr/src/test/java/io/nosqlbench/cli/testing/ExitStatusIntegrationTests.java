@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 nosqlbench
+ * Copyright (c) 2022-2023 nosqlbench
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -86,7 +86,6 @@ class ExitStatusIntegrationTests {
         assertThat(result.exitStatus).isEqualTo(2);
     }
 
-//  This will not work reliablyl until the activity shutdown bug is fixed.
 //    @Test
 //    public void testCloseErrorHandlerOnSpace() {
 //        ProcessInvoker invoker = new ProcessInvoker();
@@ -97,7 +96,8 @@ class ExitStatusIntegrationTests {
 //        );
 //        String stdout = String.join("\n", result.getStdoutData());
 //        String stderr = String.join("\n", result.getStderrData());
-//        assertThat(result.exception).isNotNull();
-//        assertThat(result.exception.getMessage()).contains("diag space was configured to throw");
+//        assertThat(result.exitStatus).isEqualTo(2);
+//        assertThat(stderr).contains("diag space was configured to throw");
 //    }
+
 }

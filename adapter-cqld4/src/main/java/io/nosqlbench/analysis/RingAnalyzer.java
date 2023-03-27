@@ -16,13 +16,12 @@
 
 package io.nosqlbench.analysis;
 
-import io.nosqlbench.api.spi.BundledApp;
-import io.nosqlbench.nb.annotations.Service;
+import io.nosqlbench.api.apps.BundledApp;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
 
-@Service(value=BundledApp.class, selector = "cql-ring-analyzer")
+//@Service(value=BundledApp.class, selector = "cql-ring-analyzer")
 public class RingAnalyzer implements BundledApp {
     private final static Logger logger = LogManager.getLogger(RingAnalyzer.class);
 
@@ -32,7 +31,7 @@ public class RingAnalyzer implements BundledApp {
         CommandLine cli = new CommandLine(cfg);
         CommandLine.ParseResult cl = cli.parseArgs(args);
 
-        logger.info("filename: " + cfg.filename);
+        logger.info(() -> "filename: " + cfg.filename);
         return 0;
     }
 }

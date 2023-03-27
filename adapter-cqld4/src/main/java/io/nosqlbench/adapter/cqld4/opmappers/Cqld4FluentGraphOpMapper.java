@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 nosqlbench
+ * Copyright (c) 2022-2023 nosqlbench
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import io.nosqlbench.engine.api.templating.TypeAndTarget;
 import io.nosqlbench.api.errors.OpConfigError;
 import io.nosqlbench.virtdata.core.bindings.Bindings;
 import io.nosqlbench.virtdata.core.bindings.BindingsTemplate;
-import io.nosqlbench.virtdata.core.templates.ParsedStringTemplate;
+import io.nosqlbench.virtdata.core.templates.ParsedTemplateString;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
@@ -63,7 +63,7 @@ public class Cqld4FluentGraphOpMapper implements OpMapper<Op> {
     public OpDispenser<? extends Op> apply(ParsedOp op) {
         GraphTraversalSource g = DseGraph.g;
 
-        ParsedStringTemplate fluent = op.getAsTemplate(target.field).orElseThrow();
+        ParsedTemplateString fluent = op.getAsTemplate(target.field).orElseThrow();
         String scriptBodyWithRawVarRefs = fluent.getPositionalStatement();
 
         CompilerConfiguration compilerConfiguration = new CompilerConfiguration();
@@ -103,7 +103,7 @@ public class Cqld4FluentGraphOpMapper implements OpMapper<Op> {
             try {
                 loader.loadClass(candidateName);
                 classNames.add(candidateName);
-                logger.debug("added import " + candidateName);
+                logger.debug(() -> "added import " + candidateName);
             } catch (Exception e) {
                 throw new RuntimeException("Class '" + candidateName + "' was not found for fluent imports.");
             }

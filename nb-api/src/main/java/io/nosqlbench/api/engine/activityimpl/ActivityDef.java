@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 nosqlbench
+ * Copyright (c) 2022-2023 nosqlbench
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package io.nosqlbench.api.engine.activityimpl;
 
 import io.nosqlbench.api.config.NBNamedElement;
 import io.nosqlbench.api.engine.util.Unit;
+import io.nosqlbench.api.errors.BasicError;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -45,7 +46,7 @@ public class ActivityDef implements NBNamedElement {
     private final static Logger logger = LogManager.getLogger(ActivityDef.class);
     // an alias with which to control the activity while it is running
     private static final String FIELD_ALIAS = "alias";
-    // a file or URL containing the activity: statements, generator bindings, ...
+    // a file or URL containing the activity: op templates, generator bindings, ...
     private static final String FIELD_ATYPE = "type";
     // cycles for this activity in either "M" or "N..M" form. "M" form implies "0..M"
     private static final String FIELD_CYCLES = "cycles";
@@ -75,7 +76,7 @@ public class ActivityDef implements NBNamedElement {
         ActivityDef activityDef = new ActivityDef(activityParameterMap.orElseThrow(
                 () -> new RuntimeException("Unable to parse:" + namedActivitySpec)
         ));
-        logger.debug("parsed activityDef " + namedActivitySpec + " to-> " + activityDef);
+        logger.info("parsed activityDef " + namedActivitySpec + " to-> " + activityDef);
 
         return activityDef;
     }
@@ -212,5 +213,23 @@ public class ActivityDef implements NBNamedElement {
     @Override
     public String getName() {
         return getAlias();
+    }
+
+    public ActivityDef deprecate(String deprecatedName, String newName) {
+        Object deprecatedParam = this.parameterMap.get(deprecatedName);
+        if (deprecatedParam==null) {
+            return this;
+        }
+        if (deprecatedParam instanceof CharSequence chars) {
+            if (this.parameterMap.containsKey(newName)) {
+                throw new BasicError("You have specified activity param '" + deprecatedName + "' in addition to the valid name '" + newName +"'. Remove '" + deprecatedName + "'.");
+            } else {
+                logger.warn("Auto replacing deprecated activity param '" + deprecatedName + "="+ chars +"' with new '" + newName +"="+ chars +"'.");
+                parameterMap.put(newName,parameterMap.remove(deprecatedName));
+            }
+        } else {
+            throw new BasicError("Can't replace deprecated name with value of type " + deprecatedName.getClass().getCanonicalName());
+        }
+        return this;
     }
 }

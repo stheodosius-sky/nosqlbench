@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 nosqlbench
+ * Copyright (c) 2022-2023 nosqlbench
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,15 +21,15 @@ import io.nosqlbench.engine.cli.BasicScriptBuffer;
 import io.nosqlbench.engine.cli.Cmd;
 import io.nosqlbench.engine.cli.NBCLICommandParser;
 import io.nosqlbench.engine.cli.ScriptBuffer;
-import io.nosqlbench.engine.core.lifecycle.ScenarioResult;
-import io.nosqlbench.engine.core.script.Scenario;
-import io.nosqlbench.engine.core.script.ScenariosExecutor;
+import io.nosqlbench.engine.core.lifecycle.ExecutionMetricsResult;
+import io.nosqlbench.engine.core.lifecycle.scenario.Scenario;
+import io.nosqlbench.engine.core.lifecycle.scenario.ScenariosExecutor;
 import io.nosqlbench.engine.rest.services.WorkSpace;
 import io.nosqlbench.engine.rest.services.WorkspaceFinder;
 import io.nosqlbench.engine.rest.transfertypes.LiveScenarioView;
 import io.nosqlbench.engine.rest.transfertypes.RunScenarioRequest;
-import io.nosqlbench.nb.annotations.Service;
 import io.nosqlbench.nb.annotations.Maturity;
+import io.nosqlbench.nb.annotations.Service;
 import jakarta.inject.Singleton;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.*;
@@ -42,6 +42,8 @@ import java.io.CharArrayWriter;
 import java.io.PrintWriter;
 import java.util.*;
 import java.util.concurrent.Future;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service(value = WebServiceObject.class, selector = "scenario-executor")
 @Singleton
@@ -155,7 +157,15 @@ public class ScenarioExecutorEndpoint implements WebServiceObject {
         LinkedList<String> newargs = new LinkedList<>();
         for (String arg : args) {
             for (String s : rq.getFilemap().keySet()) {
-                arg = arg.replaceAll(s, rq.getFilemap().get(s));
+                Pattern basename = Pattern.compile(s);
+                String fullyQualifiedName = rq.getFilemap().get(s);
+                Matcher basenameMatcher = basename.matcher(arg);
+                StringBuilder newarg = new StringBuilder();
+                while (basenameMatcher.find()) {
+                    basenameMatcher.appendReplacement(newarg,fullyQualifiedName);
+                }
+                basenameMatcher.appendTail(newarg);
+                arg = newarg.toString();
             }
             newargs.add(arg);
         }
@@ -234,8 +244,8 @@ public class ScenarioExecutorEndpoint implements WebServiceObject {
         Optional<Scenario> pendingScenario = executor.getPendingScenario(scenarioName);
 
         if (pendingScenario.isPresent()) {
-            Optional<Future<ScenarioResult>> pendingResult = executor.getPendingResult(scenarioName);
-            Future<ScenarioResult> scenarioResultFuture = pendingResult.get();
+            Optional<Future<ExecutionMetricsResult>> pendingResult = executor.getPendingResult(scenarioName);
+            Future<ExecutionMetricsResult> scenarioResultFuture = pendingResult.get();
             return new LiveScenarioView(pendingScenario.get());
         } else {
             throw new RuntimeException("Scenario name '" + scenarioName + "' not found.");

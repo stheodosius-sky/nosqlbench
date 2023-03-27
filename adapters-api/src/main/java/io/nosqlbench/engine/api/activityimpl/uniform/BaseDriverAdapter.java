@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 nosqlbench
+ * Copyright (c) 2022-2023 nosqlbench
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -160,12 +160,14 @@ public abstract class BaseDriverAdapter<R extends Op, S> implements DriverAdapte
             .add(Param.optional("stride").setRegex("\\d+"))
             .add(Param.optional("striderate", String.class, "rate limit for strides per second"))
             .add(Param.optional("cycles").setRegex("\\d+[KMBGTPE]?|\\d+[KMBGTPE]?\\.\\.\\d+[KMBGTPE]?").setDescription("cycle interval to use"))
+            .add(Param.optional("recycles").setDescription("allow cycles to be re-used this many times"))
             .add(Param.optional(List.of("cyclerate", "targetrate", "rate"), String.class, "rate limit for cycles per second"))
             .add(Param.optional("phaserate", String.class, "rate limit for phases per second"))
             .add(Param.optional("seq", String.class, "sequencing algorithm"))
             .add(Param.optional("instrument", Boolean.class))
             .add(Param.optional(List.of("workload", "yaml"), String.class, "location of workload yaml file"))
             .add(Param.optional("driver", String.class))
+            .add(Param.defaultTo("dryrun","none").setRegex("(op|jsonnet|none)"))
             .asReadOnly();
     }
 

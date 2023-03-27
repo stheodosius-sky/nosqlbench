@@ -1,4 +1,4 @@
-# Driver: tcpserver
+# tcpserver
 
 **tcpserver acts like a _server push_ version of stdout over TCP**
 
@@ -8,6 +8,8 @@ same way as the stdout driver, except for the additional parameters shown here.
 The tcpserver driver listens on a configured host and port (a socket address). When any clients are connected, the
 internal queue is buffered to them as long as there is data in it. For each cycle of data in the internal buffer, one of
 the connected clients will get it in unspecified order.
+
+The driver activity will block as long as there are still messages in the queue (Max:capacity). To ensure that the queue is empties and the activity shuts down correctly, one must make sure that a client connects to the server to receive the queued messages.
 
 If the buffer is primed with data when a client is connected it will get all of the data at once. After this, data is
 added to the buffer at whatever cyclerate the activity is configured for. If you add data to the buffer faster than you
@@ -43,7 +45,7 @@ Run a stdout activity named 'stdout-test', with definitions from activities/stdo
 
   To enable, specifies the type of the SSL implementation with either `jdk` or `openssl`.
 
-  [Additional parameters may need to be provided](../../../../driver-cql/src/main/resources/ssl.md).
+  See the ssl help topic for more details with `nb5 help ssl` for more details.
 
 - **host** - this is the name to bind to (local interface address)
   - default: localhost

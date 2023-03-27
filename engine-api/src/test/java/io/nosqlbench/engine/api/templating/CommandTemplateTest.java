@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 nosqlbench
+ * Copyright (c) 2022-2023 nosqlbench
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,12 @@ package io.nosqlbench.engine.api.templating;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import io.nosqlbench.engine.api.activityconfig.StatementsLoader;
+import io.nosqlbench.engine.api.activityconfig.OpsLoader;
 import io.nosqlbench.engine.api.activityconfig.yaml.OpTemplate;
-import io.nosqlbench.engine.api.activityconfig.yaml.StmtsDocList;
+import io.nosqlbench.engine.api.activityconfig.yaml.OpTemplateFormat;
+import io.nosqlbench.engine.api.activityconfig.yaml.OpsDocList;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -28,14 +31,15 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class CommandTemplateTest {
+    private final static Logger logger = LogManager.getLogger(CommandTemplateTest.class);
 
     @Test
     public void testCommandTemplate() {
-        StmtsDocList stmtsDocs = StatementsLoader.loadString("" +
-                "statements:\n" +
+        OpsDocList opsDocs = OpsLoader.loadString("" +
+                "ops:\n" +
                 " - s1: test1=foo test2=bar",
-            Map.of());
-        OpTemplate optpl = stmtsDocs.getStmts().get(0);
+            OpTemplateFormat.yaml, Map.of(), null);
+        OpTemplate optpl = opsDocs.getOps().get(0);
         CommandTemplate ct = new CommandTemplate(optpl);
         assertThat(ct.isStatic()).isTrue();
     }
@@ -43,17 +47,17 @@ public class CommandTemplateTest {
     @Test
     public void testCommandTemplateFormat() {
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
-        StmtsDocList stmtsDocs = StatementsLoader.loadString("" +
-            "statements:\n" +
+        OpsDocList stmtsDocs = OpsLoader.loadString("" +
+            "ops:\n" +
             " - s1: test1=foo test2={bar}\n" +
             "   bindings:\n" +
             "    bar: NumberNameToString();\n",
-            Map.of()
+            OpTemplateFormat.yaml, Map.of(), null
         );
-        OpTemplate optpl = stmtsDocs.getStmts().get(0);
+        OpTemplate optpl = stmtsDocs.getOps().get(0);
         CommandTemplate ct = new CommandTemplate(optpl);
         String format = gson.toJson(ct);
-        System.out.println(format);
+        logger.debug(format);
 
     }
 

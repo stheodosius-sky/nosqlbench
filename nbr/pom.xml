@@ -1,5 +1,5 @@
 <!--
-  ~ Copyright (c) 2022 nosqlbench
+  ~ Copyright (c) 2022-2023 nosqlbench
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
   ~ you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
     <parent>
         <artifactId>mvn-defaults</artifactId>
         <groupId>io.nosqlbench</groupId>
-        <version>4.17.31</version>
+        <version>${revision}</version>
         <relativePath>../mvn-defaults</relativePath>
     </parent>
 
@@ -39,46 +39,61 @@
 
         <dependency>
             <groupId>io.nosqlbench</groupId>
-            <artifactId>engine-rest</artifactId>
-            <version>4.17.31</version>
-        </dependency>
-
-        <dependency>
-            <groupId>io.nosqlbench</groupId>
             <artifactId>engine-cli</artifactId>
-            <version>4.17.31</version>
+            <version>${revision}</version>
         </dependency>
 
         <dependency>
             <groupId>io.nosqlbench</groupId>
             <artifactId>engine-docs</artifactId>
-            <version>4.17.31</version>
+            <version>${revision}</version>
         </dependency>
 
         <dependency>
             <groupId>io.nosqlbench</groupId>
             <artifactId>engine-core</artifactId>
-            <version>4.17.31</version>
+            <version>${revision}</version>
         </dependency>
 
         <dependency>
             <groupId>io.nosqlbench</groupId>
             <artifactId>engine-extensions</artifactId>
-            <version>4.17.31</version>
+            <version>${revision}</version>
         </dependency>
 
         <dependency>
             <groupId>io.nosqlbench</groupId>
             <artifactId>adapter-diag</artifactId>
-            <version>4.17.31</version>
+            <version>${revision}</version>
         </dependency>
+
+        <dependency>
+            <groupId>io.nosqlbench</groupId>
+            <artifactId>engine-clients</artifactId>
+            <version>${revision}</version>
+        </dependency>
+
     </dependencies>
 
     <build>
         <resources>
             <resource>
                 <directory>src/main/resources</directory>
+                <includes>
+                    <include>version.properties</include>
+                    <include>nb_version_info.md</include>
+                    <include>log4j2.xml</include>
+                </includes>
                 <filtering>true</filtering>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+                <includes>
+                    <include>examples/**</include>
+                    <include>scripts/**</include>
+                    <include>**/*.md</include>
+                </includes>
+                <filtering>false</filtering>
             </resource>
         </resources>
 
@@ -131,19 +146,18 @@
                     </execution>
                 </executions>
             </plugin>
-
         </plugins>
     </build>
-
     <profiles>
         <profile>
-            <id>build-nb-appimage</id>
+            <id>build-nbr-appimage</id>
             <activation>
                 <os>
                     <family>unix</family>
                     <name>linux</name>
                     <arch>amd64</arch>
                 </os>
+                <activeByDefault>false</activeByDefault>
             </activation>
             <build>
                 <plugins>

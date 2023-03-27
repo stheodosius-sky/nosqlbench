@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 nosqlbench
+ * Copyright (c) 2022-2023 nosqlbench
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@ package io.nosqlbench.virtdata.library.curves4.discrete;
 import io.nosqlbench.virtdata.core.bindings.DataMapper;
 import io.nosqlbench.virtdata.core.bindings.VirtData;
 import org.apache.commons.statistics.distribution.BinomialDistribution;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.Test;
 
@@ -33,11 +35,12 @@ import java.util.concurrent.Future;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class IntegerDistributionsConcurrencyTest {
+    private final static Logger logger = LogManager.getLogger(IntegerDistributionsConcurrencyTest.class);
 
     @Test
     public void testBinomialICDR() {
         Offset<Double> offset = Offset.offset(0.00001d);
-        BinomialDistribution distribution = new BinomialDistribution(8, 0.5);
+        BinomialDistribution distribution = BinomialDistribution.of(8, 0.5);
         assertThat(distribution.probability(0)).isCloseTo(0.00390d, offset);
         assertThat(distribution.probability(1)).isCloseTo(0.03125d, offset);
         assertThat(distribution.probability(2)).isCloseTo(0.10937d, offset);
@@ -108,8 +111,7 @@ public class IntegerDistributionsConcurrencyTest {
         for (int i = 0; i < futures.size(); i++) {
             try {
                 results[i] = futures.get(i).get();
-                System.out.println(description + ": got results for thread " + i);
-                System.out.flush();
+                logger.debug(description + ": got results for thread " + i);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -120,20 +122,19 @@ public class IntegerDistributionsConcurrencyTest {
             long[] threadResults = results[vthread];
             for (int i = 0; i <values.length ; i++) {
                 if (threadResults[i] != values[i]) {
-                    System.out.println("not equal in thread="+ vthread + ", i=" + i
+                    logger.debug("not equal in thread="+ vthread + ", i=" + i
                             +", " + threadResults[i] + "!=" + values[i]);
                     for (int ithread = 0; ithread < threads; ithread++) {
                         System.out.print(results[ithread][i] + ",");
                     }
-                    System.out.println();
                 }
             }
             boolean equal = Arrays.equals(results[vthread],values);
             if (!equal) {
-                System.out.println("not equal!");
+                logger.debug("not equal!");
             }
             assertThat(results[vthread]).isEqualTo(values);
-            System.out.println(description + ": verified values for thread " + vthread);
+            logger.debug(description + ": verified values for thread " + vthread);
         }
 
 
@@ -157,8 +158,7 @@ public class IntegerDistributionsConcurrencyTest {
         public long[] call() throws Exception {
             long[] output = new long[size];
             DataMapper<Long> mapper = VirtData.getMapper(mapperSpec, long.class);
-//            System.out.println("resolved:" + mapper);
-//            System.out.flush();
+//            logger.debug(() -> "resolved:" + mapper);
 
             synchronized (signal) {
                 signal.wait(10000);
@@ -167,7 +167,7 @@ public class IntegerDistributionsConcurrencyTest {
             for (int i = 0; i < output.length; i++) {
                 output[i] = mapper.get(i);
 //                if ((i % 100) == 0) {
-//                    System.out.println("wrote t:" + slot + ", iter:" + i + ", val:" + output[i]);
+//                    logger.debug(() -> "wrote t:" + slot + ", iter:" + i + ", val:" + output[i]);
 //                }
             }
             return output;

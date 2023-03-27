@@ -97,7 +97,6 @@ public class VirtData {
      * @return An optional function which will be empty if the function could not be resolved.
      */
     public static <T> Optional<DataMapper<T>> getOptionalMapper(String flowSpec, Map<String,?> config) {
-        flowSpec = CompatibilityFixups.fixup(flowSpec);
         VirtDataDSL.ParseResult parseResult = VirtDataDSL.parse(flowSpec);
         if (parseResult.throwable != null) {
             throw new RuntimeException("Error while parsing binding specification '" + flowSpec +"': "+ parseResult.throwable);
@@ -118,7 +117,6 @@ public class VirtData {
 
     public static ResolverDiagnostics getMapperDiagnostics(String flowSpec, Map<String,Object> config) {
         try {
-            flowSpec = CompatibilityFixups.fixup(flowSpec);
             VirtDataDSL.ParseResult parseResult = VirtDataDSL.parse(flowSpec);
             if (parseResult.throwable != null) {
                 throw new RuntimeException(parseResult.throwable);
@@ -153,10 +151,10 @@ public class VirtData {
         return getOptionalMapper(flowSpec,clazz,Collections.emptyMap());
     }
     public static <T> Optional<DataMapper<T>> getOptionalMapper(
-            String flowSpec,
+            final String originalflowSpec,
             Class<?> clazz,
             Map<String,Object> config) {
-        flowSpec = CompatibilityFixups.fixup(flowSpec);
+        String flowSpec = originalflowSpec;
         VirtDataDSL.ParseResult parseResult = VirtDataDSL.parse(flowSpec);
         if (parseResult.throwable != null) {
             throw new RuntimeException(parseResult.throwable);
@@ -173,7 +171,7 @@ public class VirtData {
                         " reliably be cast to type '" + clazz.getCanonicalName() +"'");
             }
         } else {
-            logger.debug("Auto-assigning output type qualifier '->" + clazz.getCanonicalName() + "' to specifier '" + flowSpec + "'");
+            logger.debug(() -> "Auto-assigning output type qualifier '->" + clazz.getCanonicalName() + "' to specifier '" + flowSpec + "'");
             flow.getLastExpression().getCall().setOutputType(clazz.getCanonicalName());
         }
 
@@ -207,7 +205,6 @@ public class VirtData {
     }
 
     public static <T> Optional<T> getOptionalFunction(String flowSpec, Class<? extends T> functionType, Map<String,Object> config) {
-        flowSpec = CompatibilityFixups.fixup(flowSpec);
 
         Class<?> requiredInputType = FunctionTyper.getInputClass(functionType);
         Class<?> requiredOutputType = FunctionTyper.getResultClass(functionType);

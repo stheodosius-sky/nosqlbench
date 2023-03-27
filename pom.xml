@@ -1,5 +1,5 @@
 <!--
-  ~ Copyright (c) 2022 nosqlbench
+  ~ Copyright (c) 2022-2023 nosqlbench
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
   ~ you may not use this file except in compliance with the License.
@@ -15,15 +15,15 @@
   -->
 
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
 
+    <modelVersion>4.0.0</modelVersion>
     <artifactId>nosqlbench</artifactId>
     <packaging>pom</packaging>
 
     <parent>
         <artifactId>mvn-defaults</artifactId>
         <groupId>io.nosqlbench</groupId>
-        <version>4.17.31</version>
+        <version>${revision}</version>
         <relativePath>mvn-defaults</relativePath>
     </parent>
 
@@ -33,10 +33,55 @@
         testing systems
     </description>
 
+    <properties>
+        <!-- CORE MODULES -->
+        <module.mvn-defaults>mvn-defaults</module.mvn-defaults>
+        <module.nb-api>nb-api</module.nb-api>
+        <module.nb-annotations>nb-annotations</module.nb-annotations>
+        <module.adapters-api>adapters-api</module.adapters-api>
+        <module.engine-api>engine-api</module.engine-api>
+
+        <module.engine-core>engine-core</module.engine-core>
+        <module.engine-extensions>engine-extensions</module.engine-extensions>
+        <module.engine-docker>engine-docker</module.engine-docker>
+        <module.engine-cli>engine-cli</module.engine-cli>
+        <module.engine-docs>engine-docs</module.engine-docs>
+
+        <module.nb5>nb5</module.nb5>
+        <module.nbr>nbr</module.nbr>
+
+        <module.nb-spectest>nb-spectest</module.nb-spectest>
+        <module.nbr-examples>nbr-examples</module.nbr-examples>
+
+        <!-- driver modules -->
+        <module.adapter-diag>adapter-diag</module.adapter-diag>
+        <module.adapter-stdout>adapter-stdout</module.adapter-stdout>
+        <module.adapter-cqld4>adapter-cqld4</module.adapter-cqld4>
+        <module.adapter-http>adapter-http</module.adapter-http>
+        <module.adapter-tcp>adapter-tcp</module.adapter-tcp>
+        <module.adapter-dynamodb>adapter-dynamodb</module.adapter-dynamodb>
+        <module.adapter-mongodb>adapter-mongodb</module.adapter-mongodb>
+        <module.adapter-pulsar>adapter-pulsar</module.adapter-pulsar>
+        <module.adapter-s4j>adapter-s4j</module.adapter-s4j>
+        <module.adapter-kafka>adapter-kafka</module.adapter-kafka>
+        <module.adapter-jdbc>adapter-jdbc</module.adapter-jdbc>
+
+        <!-- VIRTDATA MODULES -->
+        <module.virtdata-api>virtdata-api</module.virtdata-api>
+        <module.virtdata-lang>virtdata-lang</module.virtdata-lang>
+        <module.virtdata-realdata>virtdata-realdata</module.virtdata-realdata>
+        <module.virtdata-lib-basics>virtdata-lib-basics</module.virtdata-lib-basics>
+        <module.virtdata-lib-random>virtdata-lib-random</module.virtdata-lib-random>
+        <module.virtdata-lib-curves4>virtdata-lib-curves4</module.virtdata-lib-curves4>
+        <module.virtdata-lib-realer>virtdata-lib-realer</module.virtdata-lib-realer>
+        <module.virtdata-userlibs>virtdata-userlibs</module.virtdata-userlibs>
+    </properties>
     <modules>
 
+        <!-- TODO - consider using properties in the module defs. -->
         <!-- CORE MODULES -->
         <module>mvn-defaults</module>
+        <module>nb5-proof</module>
         <module>nb5</module>
         <module>nbr</module>
         <module>nbr-examples</module>
@@ -48,9 +93,8 @@
         <module>engine-extensions</module>
         <module>engine-docker</module>
         <module>engine-docs</module>
-        <module>engine-cli</module>
-        <module>engine-rest</module>
         <module>engine-clients</module>
+        <module>engine-cli</module>
         <module>adapters-api</module>
 
         <!-- driver modules -->
@@ -63,9 +107,11 @@
         <module>adapter-mongodb</module>
         <module>adapter-pulsar</module>
         <module>adapter-couchbase</module>
+        <module>adapter-s4j</module>
+        <module>adapter-kafka</module>
+        <module>adapter-jdbc</module>
 
         <!-- VIRTDATA MODULES -->
-
         <module>virtdata-api</module>
         <module>virtdata-lang</module>
         <module>virtdata-realdata</module>
@@ -77,36 +123,7 @@
 
         <!-- Documentation -->
         <module>docsys</module>
-
     </modules>
-
-    <profiles>
-        <profile>
-            <id>with-nb</id>
-            <activation>
-                <activeByDefault>false</activeByDefault>
-            </activation>
-            <modules>
-                <module>nb</module>
-                <module>driver-tcp</module>
-                <module>driver-kafka</module>
-                <module>driver-jmx</module>
-                <module>driver-jdbc</module>
-                <module>driver-cockroachdb</module>
-
-            </modules>
-        </profile>
-        <profile>
-            <id>with-mongodb</id>
-            <activation>
-                <activeByDefault>false</activeByDefault>
-            </activation>
-            <modules>
-                <module>driver-mongodb</module>
-            </modules>
-        </profile>
-
-    </profiles>
 
     <licenses>
         <license>
@@ -141,6 +158,7 @@
                 <!--                <executions>-->
                 <!--                </executions>-->
             </plugin>
+
         </plugins>
 
     </build>
@@ -150,7 +168,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-project-info-reports-plugin</artifactId>
-                <version>2.9</version>
+                <version>3.4.2</version>
             </plugin>
         </plugins>
     </reporting>
@@ -165,6 +183,12 @@
         <developer>
             <name>Sebastián Estévez</name>
             <email>estevezsebastian@gmail.com</email>
+            <organization>nosqlbench.io</organization>
+            <organizationUrl>http://nosqlbench.io/</organizationUrl>
+        </developer>
+        <developer>
+            <name>Madhavan S.</name>
+            <url>https://github.com/msmygit</url>
             <organization>nosqlbench.io</organization>
             <organizationUrl>http://nosqlbench.io/</organizationUrl>
         </developer>
@@ -189,7 +213,7 @@
             scm:git:https://github.com/nosqlbench/nosqlbench.git
         </developerConnection>
         <url>scm:git:git@github.com:nosqlbench/nosqlbench.git</url>
-        <tag>nosqlbench-4.17.31</tag>
+        <tag>HEAD</tag>
     </scm>
 
     <distributionManagement>
