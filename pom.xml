@@ -106,6 +106,7 @@
         <module>adapter-dynamodb</module>
         <module>adapter-mongodb</module>
         <module>adapter-pulsar</module>
+        <module>adapter-couchbase</module>
         <module>adapter-s4j</module>
         <module>adapter-kafka</module>
         <module>adapter-jdbc</module>
